@@ -1,12 +1,45 @@
-import 'package:comex_test/bookDetails.dart';
+import 'dart:convert';
+
+import 'package:comex/User.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:comex_test/main.dart';
+import 'package:comex/main.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'home.dart';
+import 'package:flutter_facebook_login/flutter_facebook_login.dart';
+import 'package:http/http.dart' as http;
 class Register extends StatefulWidget {
   @override
   RegisterState createState() => RegisterState();
 }
 
 class RegisterState extends State<Register> {
+  FirebaseAuth fauth;String email,password,confirmPassword,username;bool dontMatch,alreadyUsed,hide,chide;CustomUser user;GoogleSignIn googleSignIn;FacebookLogin facebookLogin;
+  @override
+  void initState(){
+    getApp();
+    dontMatch = false;
+    alreadyUsed = false;
+    hide = true;
+    chide = true;
+    googleSignIn = GoogleSignIn();
+    googleSignIn.onCurrentUserChanged.listen((account) {
+      if(account != null){
+        user = CustomUser(username: account.displayName,email: account.email,dateJoined: DateTime.now());
+        Navigator.of(context).push(home(user));
+      }
+    });
+    facebookLogin = FacebookLogin();
+    super.initState();
+  }
+
+  getApp() async{
+    FirebaseApp app = await Firebase.initializeApp();
+    setState(() {
+      fauth = FirebaseAuth.instanceFor(app:app);
+    });
+  }
 
   Route login(){
     return PageRouteBuilder(
@@ -20,9 +53,9 @@ class RegisterState extends State<Register> {
     );
   }
 
-    Route bookDetails(){
+  Route home(CustomUser user){
     return PageRouteBuilder(
-      pageBuilder: (context, animation, secondaryAnimation) => BookDetailsPage(),
+      pageBuilder: (context, animation, secondaryAnimation) => Home(user: user,),
       transitionsBuilder: (context, animation, secondaryAnimation, child){
         return SlideTransition(
           position: animation.drive(Tween(begin:Offset(-1,0),end:Offset.zero)),
@@ -31,6 +64,45 @@ class RegisterState extends State<Register> {
       },
     );
   }
+
+  signin() async {
+    if(password == confirmPassword){
+      try{
+        await fauth.createUserWithEmailAndPassword(email: email.trim(), password: password.trim()).then(
+          (value)=>{
+            user = CustomUser(username:username,email: email.trim(),dateJoined: DateTime.now()),
+            Navigator.of(context).push(home(user))
+          }
+        );
+      } on FirebaseAuthException catch(e){
+        if(e.code == 'email-already-in-use'){
+          setState(() {
+            alreadyUsed = true;
+          });
+        }
+      }
+    }else{
+      setState(() {
+        dontMatch = true;
+      });
+    }
+  }
+
+  facebook() async {
+    var res = await facebookLogin.logIn(['email','name']);
+    var token = res.accessToken.token;
+    var graphResponse = await http.get('https://graph.facebook.com/v2.12/me?fields=name,first_name,last_name,email&access_token=${token}');
+    var profile = json.decode(graphResponse.body);
+    user = CustomUser(email: profile["email"],username: profile["name"],dateJoined: DateTime.now());
+    Navigator.of(context).push(home(user));
+  }
+
+  google() {
+    googleSignIn.signIn().catchError((error){
+      print("\n\nError is: " + error + "\n\n");
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -73,7 +145,16 @@ class RegisterState extends State<Register> {
                 alignment: Alignment.centerLeft,
                 child:Padding(
                   padding: const EdgeInsets.only(top:50,left:60,right:40),
-                  child: Text("Email",style:TextStyle(fontSize: 18,color:Color.fromRGBO(82,93,92,1))),
+                  child: Row(
+                    children: <Widget>[
+                      Text("Email",style:TextStyle(fontSize: 18,color:Color.fromRGBO(82,93,92,1))),
+                      Expanded(child: Container(),),
+                      Visibility(
+                        visible: alreadyUsed,
+                        child: Text("Email already registered",style:TextStyle(color:Colors.red[400])),
+                      )
+                    ],
+                  ),
                 )
               ),
               Container(
@@ -81,11 +162,16 @@ class RegisterState extends State<Register> {
                 child:Padding(
                   padding: const EdgeInsets.only(top:10,left:40,right:40),
                   child: TextField(
+                    onChanged: (value){
+                      setState(() {
+                        email = value;
+                      });
+                    },
                     style: TextStyle(fontSize: 20),
                     decoration: InputDecoration(
                       contentPadding: EdgeInsets.symmetric(vertical:10),
                       filled: true,
-                      fillColor: Color.fromRGBO(246, 246, 246, 1),
+                      fillColor: alreadyUsed ? Colors.red[100] : Color.fromRGBO(246, 246, 246, 1),
                       prefixIcon: Icon(Icons.alternate_email,color: Color.fromRGBO(82,93,92,1)),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(30)
@@ -109,12 +195,17 @@ class RegisterState extends State<Register> {
                 child:Padding(
                   padding: const EdgeInsets.only(top:10,left:40,right:40),
                   child: TextField(
+                    onChanged: (value){
+                      setState(() {
+                        username = value;
+                      });
+                    },
                     style: TextStyle(fontSize: 20),
                     decoration: InputDecoration(
                       contentPadding: EdgeInsets.symmetric(vertical:10),
                       filled: true,
                       fillColor: Color.fromRGBO(246, 246, 246, 1),
-                      prefixIcon: Icon(Icons.alternate_email,color: Color.fromRGBO(82,93,92,1)),
+                      prefixIcon: Icon(Icons.person_outline,color: Color.fromRGBO(82,93,92,1)),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(30)
                       ),
@@ -129,7 +220,16 @@ class RegisterState extends State<Register> {
                 alignment: Alignment.centerLeft,
                 child:Padding(
                   padding: const EdgeInsets.only(top:10,left:60,right:40),
-                  child: Text("Password",style:TextStyle(fontSize: 18,color:Color.fromRGBO(82,93,92,1))),
+                  child: Row(
+                    children: <Widget>[
+                      Text("Password",style:TextStyle(fontSize: 18,color:Color.fromRGBO(82,93,92,1))),
+                      Expanded(child: Container(),),
+                      Visibility(
+                        visible: dontMatch,
+                        child: Text("Passwords don't match",style:TextStyle(color:Colors.red[400])),
+                      )
+                    ],
+                  ),
                 )
               ),
               Container(
@@ -137,17 +237,67 @@ class RegisterState extends State<Register> {
                 child:Padding(
                   padding: const EdgeInsets.only(top:10,left:40,right:40),
                   child: TextField(
-                    obscureText: true,
+                    onChanged: (value){
+                      setState(() {
+                        password = value;
+                      });
+                    },
+                    obscureText: hide,
                     style: TextStyle(fontSize: 20),
                     decoration: InputDecoration(
                       contentPadding: EdgeInsets.symmetric(vertical:10),
                       filled: true,
-                      fillColor: Color.fromRGBO(246, 246, 246, 1),
+                      fillColor: dontMatch ? Colors.red[100] : Color.fromRGBO(246, 246, 246, 1),
                       prefixIcon: Icon(Icons.lock_outline,color: Color.fromRGBO(82,93,92,1)),
                       suffixIcon:GestureDetector(
-                        onTap: null,
-                        child: Icon(Icons.visibility,color: Color.fromRGBO(218,218,218,1),),), 
+                        onTap: ()=>{
+                          setState((){
+                            hide = !hide;
+                          })
+                        },
+                        child: Icon(hide ? Icons.visibility_off : Icons.visibility,color:Colors.black),), 
                         //Icon(Icons.visibility_off,color: Color.fromRGBO(218,218,218,1)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30)
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30)
+                      ), 
+                    ),
+                  ),
+                )
+              ),
+              Container(
+                alignment: Alignment.centerLeft,
+                child:Padding(
+                  padding: const EdgeInsets.only(top:10,left:60,right:40),
+                  child: Text("Confirm Password",style:TextStyle(fontSize: 18,color:Color.fromRGBO(82,93,92,1))),
+                )
+              ),
+              Container(
+                alignment: Alignment.center,
+                child:Padding(
+                  padding: const EdgeInsets.only(top:10,left:40,right:40),
+                  child: TextField(
+                    onChanged: (value){
+                      setState(() {
+                        confirmPassword = value;
+                      });
+                    },
+                    obscureText: chide,
+                    style: TextStyle(fontSize: 20),
+                    decoration: InputDecoration(
+                      contentPadding: EdgeInsets.symmetric(vertical:10),
+                      filled: true,
+                      fillColor: dontMatch ? Colors.red[100] : Color.fromRGBO(246, 246, 246, 1),
+                      prefixIcon: Icon(Icons.lock_outline,color: Color.fromRGBO(82,93,92,1)),
+                      suffixIcon:GestureDetector(
+                        onTap: ()=>{
+                          setState((){
+                            chide = !chide;
+                          })
+                        },
+                        child: Icon(chide ? Icons.visibility_off : Icons.visibility,color:Colors.black)), 
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(30)
                       ),
@@ -172,7 +322,7 @@ class RegisterState extends State<Register> {
                   ),
                   alignment: Alignment.center,
                   child: MaterialButton(
-                    onPressed: ()=>Navigator.of(context).push(bookDetails()),
+                    onPressed: ()=>signin(),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: <Widget>[
@@ -221,7 +371,7 @@ class RegisterState extends State<Register> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal:20),
                       child: GestureDetector(
-                        onTap: null,
+                        onTap: ()=>google(),
                         child: Image.asset('assets/google.png',scale: 2.5,)
                       ),
                     )

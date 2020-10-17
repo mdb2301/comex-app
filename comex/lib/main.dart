@@ -1,7 +1,14 @@
-import 'package:comex_test/bookDetails.dart';
-import 'package:comex_test/register.dart';
-import 'package:flutter/material.dart';
+import 'dart:convert';
 
+import 'package:comex/register.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter_facebook_login/flutter_facebook_login.dart';
+import 'User.dart';
+import 'home.dart';
+import 'package:http/http.dart' as http;
 void main() {
   runApp(MyApp());
 }
@@ -28,6 +35,31 @@ class Login extends StatefulWidget {
 }
 
 class LoginState extends State<Login> {
+  String email,password;bool emailError,passwordError,hide;FirebaseAuth fauth;CustomUser user;GoogleSignIn googleSignIn;FacebookLogin facebookLogin;
+
+  @override
+  void initState(){
+    getApp();
+    emailError = false;
+    passwordError = false;
+    hide = true;
+    googleSignIn = GoogleSignIn();
+    googleSignIn.onCurrentUserChanged.listen((account) {
+      if(account != null){
+        user = CustomUser(username: account.displayName,email: account.email);
+        Navigator.of(context).push(home(user));
+      }
+    });
+    facebookLogin = FacebookLogin();
+    super.initState();
+  }
+
+  getApp() async{
+    FirebaseApp app = await Firebase.initializeApp();
+    setState(() {
+      fauth = FirebaseAuth.instanceFor(app:app);
+    });
+  }
 
   Route register(){
     return PageRouteBuilder(
@@ -41,9 +73,9 @@ class LoginState extends State<Login> {
     );
   }
 
-  Route bookDetails(){
+  Route home(CustomUser user){
     return PageRouteBuilder(
-      pageBuilder: (context, animation, secondaryAnimation) => BookDetailsPage(),
+      pageBuilder: (context, animation, secondaryAnimation) => Home(user:user),
       transitionsBuilder: (context, animation, secondaryAnimation, child){
         return SlideTransition(
           position: animation.drive(Tween(begin:Offset(-1,0),end:Offset.zero)),
@@ -52,6 +84,42 @@ class LoginState extends State<Login> {
       },
     );
   }
+
+  signin() async {
+    try{
+      await fauth.signInWithEmailAndPassword(email: email.trim(), password: password.trim()).then(
+        (value)=>{
+          user = CustomUser(email: email.trim()),
+          Navigator.of(context).push(home(user))
+        }
+      );
+    } on FirebaseAuthException catch(e){
+      if(e.code == 'user-not-found'){
+        setState(() {
+          emailError = true;
+        });
+      }
+      if(e.code == 'wrong-password'){
+        setState(() {
+          passwordError = true;
+        });
+      }
+    }
+  }
+
+  facebook() async {
+    var res = await facebookLogin.logIn(['email','name']);
+    var token = res.accessToken.token;
+    var graphResponse = await http.get('https://graph.facebook.com/v2.12/me?fields=name,first_name,last_name,email&access_token=${token}');
+    var profile = json.decode(graphResponse.body);
+    user = CustomUser(email: profile["email"],username: profile["name"],dateJoined: DateTime.now());
+    Navigator.of(context).push(home(user));
+  }
+
+  google(){
+    googleSignIn.signIn();
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -81,7 +149,16 @@ class LoginState extends State<Login> {
                 alignment: Alignment.centerLeft,
                 child:Padding(
                   padding: const EdgeInsets.only(top:50,left:60,right:40),
-                  child: Text("Username",style:TextStyle(fontSize: 18,color:Color.fromRGBO(82,93,92,1))),
+                  child: Row(
+                    children: <Widget>[
+                      Text("Email",style:TextStyle(fontSize: 18,color:Color.fromRGBO(82,93,92,1))),
+                      Expanded(child: Container(),),
+                      Visibility(
+                        visible: emailError,
+                        child: Text("Invalid Email",style:TextStyle(color:Colors.red[400])),
+                      )
+                    ],
+                  ),
                 )
               ),
               Container(
@@ -89,11 +166,16 @@ class LoginState extends State<Login> {
                 child:Padding(
                   padding: const EdgeInsets.only(top:10,left:40,right:40),
                   child: TextField(
+                    onChanged: (value)=>{
+                      setState((){
+                        email = value;
+                      })
+                    },
                     style: TextStyle(fontSize: 20),
                     decoration: InputDecoration(
                       contentPadding: EdgeInsets.symmetric(vertical:13),
                       filled: true,
-                      fillColor: Color.fromRGBO(246, 246, 246, 1),
+                      fillColor: emailError ? Colors.red[100] : Color.fromRGBO(246, 246, 246, 1),
                       prefixIcon: Icon(Icons.alternate_email),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(30)
@@ -109,7 +191,16 @@ class LoginState extends State<Login> {
                 alignment: Alignment.centerLeft,
                 child:Padding(
                   padding: const EdgeInsets.only(top:30,left:60,right:40),
-                  child: Text("Password",style:TextStyle(fontSize: 18,color:Color.fromRGBO(82,93,92,1))),
+                  child: Row(
+                    children: <Widget>[
+                      Text("Password",style:TextStyle(fontSize: 18,color:Color.fromRGBO(82,93,92,1))),
+                      Expanded(child: Container(),),
+                      Visibility(
+                        visible: passwordError,
+                        child: Text("Incorrect Password",style:TextStyle(color:Colors.red[400])),
+                      )
+                    ],
+                  ),
                 )
               ),
               Container(
@@ -117,13 +208,26 @@ class LoginState extends State<Login> {
                 child:Padding(
                   padding: const EdgeInsets.only(top:10,left:40,right:40),
                   child: TextField(
+                    onChanged: (value)=>{
+                      setState((){
+                        password = value;
+                      })
+                    },
                     obscureText: true,
                     style: TextStyle(fontSize: 20),
                     decoration: InputDecoration(
                       contentPadding: EdgeInsets.symmetric(vertical:13),
                       filled: true,
-                      fillColor: Color.fromRGBO(246, 246, 246, 1),
+                      fillColor: passwordError ? Colors.red[100] : Color.fromRGBO(246, 246, 246, 1),
                       prefixIcon: Icon(Icons.lock_outline),
+                      suffixIcon:GestureDetector(
+                        onTap: ()=>{
+                          setState((){
+                            hide = !hide;
+                          })
+                        },
+                        child: Icon(hide ? Icons.visibility_off : Icons.visibility,color:Colors.black),
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(30)
                       ),
@@ -158,7 +262,7 @@ class LoginState extends State<Login> {
                   ),
                   alignment: Alignment.center,
                   child: MaterialButton(
-                    onPressed: ()=>Navigator.of(context).push(bookDetails()),
+                    onPressed: signin,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: <Widget>[
@@ -200,14 +304,14 @@ class LoginState extends State<Login> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal:20),
                       child: GestureDetector(
-                        onTap: null,
+                        onTap: ()=>facebook(),
                         child: Image.asset('assets/fb.png',scale: 2.5,)
                       ),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal:20),
                       child: GestureDetector(
-                        onTap: null,
+                        onTap: ()=>google(),
                         child: Image.asset('assets/google.png',scale: 2.5,)
                       ),
                     )

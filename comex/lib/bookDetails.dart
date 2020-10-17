@@ -1,14 +1,21 @@
-import 'dart:math';
-
+import 'package:comex/Book.dart';
 import 'package:flutter/material.dart';
 
 class BookDetailsPage extends StatefulWidget {
+  final Book book;
+  final int index;
+  BookDetailsPage({this.index,this.book});
   @override
   BookDetailsState createState() => BookDetailsState();
 }
 
 class BookDetailsState extends State<BookDetailsPage> {
-
+  Book book;
+  @override
+  void initState() {
+    book = super.widget.book;
+    super.initState();
+  }
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -44,27 +51,27 @@ class BookDetailsState extends State<BookDetailsPage> {
                       ],
                     ),
                   Padding(
-                    padding: const EdgeInsets.only(left:120.0,right:120.0),
-                    child: AnimatedContainer(
-                      duration: Duration(milliseconds: 500),
+                    padding: const EdgeInsets.only(left:120.0,right:120.0,top:30),
+                    child: Hero(
+                      tag: widget.index.toString(),
                       child: Image.asset(
-                        'assets/Vector.png',
-                        scale: 2,
+                        book.image,
+                        scale: 1.5,
                       ),
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.only(top:20.0),
+                    padding: const EdgeInsets.only(top:20.0,left:30,right:30),
                     child: Center(
                       child: Container(
-                        child: Text('Harry Potter and the Deathly Hallows',textAlign: TextAlign.center,style: TextStyle(fontWeight: FontWeight.w700,fontSize: 25)),
+                        child: Text(book.name,textAlign: TextAlign.center,style: TextStyle(fontWeight: FontWeight.w700,fontSize: 25)),
                       ),
                     ),
                   ),
                   Padding(
                     padding: const EdgeInsets.only(top:8,left:8,right:8,bottom:20),
                     child: Container(
-                      child: Text('J.K. Rowling',style: TextStyle(color: Color.fromRGBO(153, 153, 153, 1),fontWeight: FontWeight.w700)),
+                      child: Text(book.author,style: TextStyle(color: Color.fromRGBO(153, 153, 153, 1),fontWeight: FontWeight.w700)),
                     ),
                   ),
                   Container(        // Size of the container adjusted according to screen
@@ -98,7 +105,7 @@ class BookDetailsState extends State<BookDetailsPage> {
                                   Padding(
                                     padding: const EdgeInsets.only(left:15),
                                     child: Container(
-                                      child: Text('cool_guy_5825',style: TextStyle(color: Color.fromRGBO(82, 93, 92, 1)))
+                                      child: Text(book.listedBy,style: TextStyle(color: Color.fromRGBO(82, 93, 92, 1)))
                                     ),
                                   )
                                 ],
@@ -117,7 +124,7 @@ class BookDetailsState extends State<BookDetailsPage> {
                             Container(
                               margin: EdgeInsets.only(bottom: 90),
                               child: Text(
-                                "The Deathly Hallows is the final instalment of J.K. Rowling's bestselling series, Harry Potter. This title has Harry and his friends reeling after the death of the world's greatest wizard, Albus Dumbledore.\n\nHarry, Hermione and Ron have no other choice but to find all the remaining Horcruxes and destroy them forever, before Lord Voldemort can get his hands on them and kill Harry eventually. On the other hand, with Dumbledore's passing, hope seems to be at its dreariest. The Death-Eaters create chaos for the Muggles to struggle with, slaughtering several of them every day. To make things worse, the Ministry of Magic has also been compromised and is now under the control of the Dark Lord. Everyone seems to be a foe now. But Harry, Ron and Hermione are certain that they have to complete Dumbledore's remaining journey and destroy all the Horcruxes. Will they be successful?",
+                                book.description,
                                 style: TextStyle(color: Color.fromRGBO(0, 0, 0, 1)),
                                 textAlign: TextAlign.justify,
                                 ),
@@ -153,7 +160,7 @@ class BookDetailsState extends State<BookDetailsPage> {
                         children: [
                           Column(
                             children: [
-                              Text('12',style:TextStyle(color:Colors.white,fontSize: 17,fontWeight: FontWeight.w800)),
+                              Text(book.price.toString(),style:TextStyle(color:Colors.white,fontSize: 17,fontWeight: FontWeight.w800)),
                               Text('COINS',style:TextStyle(color:Colors.white,fontSize: 10,fontWeight: FontWeight.w800)),
                             ],
                           ),

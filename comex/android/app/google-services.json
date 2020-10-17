@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "72446193422",
+    "firebase_url": "https://comex-6cb0e.firebaseio.com",
+    "project_id": "comex-6cb0e",
+    "storage_bucket": "comex-6cb0e.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:72446193422:android:ccccebf7f8793593dd715f",
+        "android_client_info": {
+          "package_name": "com.example.comex"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "72446193422-uoga3bp6jri8ah8ou0e6m6t51egv87tk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCIWSog2dDDTTRY8cuz9isFnFxL5SVhmtk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "72446193422-uoga3bp6jri8ah8ou0e6m6t51egv87tk.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
