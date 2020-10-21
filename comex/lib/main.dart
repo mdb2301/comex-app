@@ -44,12 +44,14 @@ class LoginState extends State<Login> {
     passwordError = false;
     hide = true;
     googleSignIn = GoogleSignIn();
-    googleSignIn.onCurrentUserChanged.listen((account) {
-      if(account != null){
-        user = CustomUser(username: account.displayName,email: account.email);
-        Navigator.of(context).push(home(user));
-      }
-    });
+
+//    Commenting this out as navigation should happen after we communicate with our server
+//    googleSignIn.onCurrentUserChanged.listen((account) {
+//      if(account != null){
+//        user = CustomUser(username: account.displayName,email: account.email);
+//        Navigator.of(context).push(home(user));
+//      }
+//    });
     facebookLogin = FacebookLogin();
     super.initState();
   }
@@ -86,6 +88,7 @@ class LoginState extends State<Login> {
   }
 
   signin() async {
+    print('signin() called');
     try{
       await fauth.signInWithEmailAndPassword(email: email.trim(), password: password.trim()).then(
         (value)=>{
@@ -116,8 +119,64 @@ class LoginState extends State<Login> {
     Navigator.of(context).push(home(user));
   }
 
-  google(){
-    googleSignIn.signIn();
+  google() async {
+    final GoogleSignInAccount googleSignInAccount = await googleSignIn.signIn();
+    final GoogleSignInAuthentication googleSignInAuthentication = await googleSignInAccount.authentication;
+
+    final AuthCredential credential = GoogleAuthProvider.credential(
+      accessToken: googleSignInAuthentication.accessToken,
+      idToken: googleSignInAuthentication.idToken,
+    );
+
+    final UserCredential authResult = await fauth.signInWithCredential(credential);
+    final User gUser = authResult.user;
+
+    if (gUser != null) {
+//      user = CustomUser(email: gUser.email, username: gUser.displayName, dateJoined: DateTime.now(), firebaseId: gUser.uid);
+      print('Signed in with Google: ' + gUser.displayName + ' ' + gUser.email + ' ' + gUser.uid);
+      getUserDataFromServer(gUser);
+    } else {
+      print('Why is user null? :(');
+    }
+  }
+
+  getUserDataFromServer(User user) async {
+    //  This functions sends Firebase User's data to our server to fetch his details
+    //  The response will contain necessary info that will be required to handle routing and populating the UI
+    //  This function will be common to both Firebase and Google login
+
+    final http.Response response = await http.post(
+        'https://guarded-cove-87354.herokuapp.com/users/',
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: jsonEncode(<String, String>{
+//          TODO: Split user.displayName into first_name and last_name
+          'first_name': user.displayName,
+          'last_name': 'temp',
+          'email': user.email,
+          'firebase_id': user.uid
+        }),
+      );
+
+      if(response.statusCode == 200) {
+//      Server will tell us whether profile is updated or not
+//      If yes, take him to the home page, else take him to the profile update page
+        CustomUser userFromServer = CustomUser.fromJson(jsonDecode(response.body));
+
+        if(userFromServer.profileUpdated) {
+          // to home page
+          // TODO: Server will also send other data about his profile, later on
+          // TODO: This data can be passed on to the home page to populate the screen
+          Navigator.of(context).push(home(userFromServer));
+          print('Redirected to home page');
+        } else {
+//          to profile update page
+          print('Redirected to profile update page');
+        }
+      } else {
+        print('Request error: ' + response.body);
+      }
   }
 
   @override
