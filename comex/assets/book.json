@@ -1,0 +1,11 @@
+[
+    {
+        "title":"Book Title",
+        "author":["Author1","Author2"],
+        "imageLinks":"assets/hp7.png",
+        "description":"The Deathly Hallows is the final instalment of J.K. Rowling's bestselling series, Harry Potter. This title has Harry and his friends reeling after the death of the world's greatest wizard, Albus Dumbledore.\n\nHarry, Hermione and Ron have no other choice but to find all the remaining Horcruxes and destroy them forever, before Lord Voldemort can get his hands on them and kill Harry eventually. On the other hand, with Dumbledore's passing, hope seems to be at its dreariest. The Death-Eaters create chaos for the Muggles to struggle with, slaughtering several of them every day. To make things worse, the Ministry of Magic has also been compromised and is now under the control of the Dark Lord. Everyone seems to be a foe now. But Harry, Ron and Hermione are certain that they have to complete Dumbledore's remaining journey and destroy all the Horcruxes. Will they be successful?",        
+        "infoLink": "https://en.wikipedia.org/wiki/Harry_Potter_and_the_Deathly_Hallows",
+        "pageCount": 200,
+        "averageRating": 4.5
+    }
+]

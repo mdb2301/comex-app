@@ -26,6 +26,7 @@ dependencies:
   google_sign_in: ^4.5.5
   flutter_facebook_login: ^3.0.0
   http: ^0.12.2
+  url_launcher: any
   flutter:
     sdk: flutter
 

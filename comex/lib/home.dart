@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 
 import 'Book.dart';
+import 'NewListingPage.dart';
 import 'User.dart';
 
 class Home extends StatefulWidget{
@@ -37,6 +38,18 @@ class HomeState extends State<Home>{
   Route profile(){
     return PageRouteBuilder(
       pageBuilder: (context, animation, secondaryAnimation) => ProfilePage(user:user),
+      transitionsBuilder: (context, animation, secondaryAnimation, child){
+        return SlideTransition(
+          position: animation.drive(Tween(begin: Offset(1.0,0.0),end: Offset.zero)),
+          child: child,
+        );
+      },
+    );
+  }
+
+  Route newList(){
+    return PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => NewListingPage(user:user),
       transitionsBuilder: (context, animation, secondaryAnimation, child){
         return SlideTransition(
           position: animation.drive(Tween(begin: Offset(1.0,0.0),end: Offset.zero)),
@@ -185,30 +198,33 @@ class HomeState extends State<Home>{
             ),
             Positioned(
               bottom:10,left:100,right:100,
-              child: Container(
-                height: 48,
-                alignment:Alignment.center,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  gradient: LinearGradient(
-                    colors: [Color.fromRGBO(3, 163, 99, 1),Color.fromRGBO(8, 199, 68, 1)],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight
+              child: GestureDetector(
+                onTap: ()=>Navigator.of(context).push(newList()),
+                child: Container(
+                  height: 48,
+                  alignment:Alignment.center,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(30),
+                    gradient: LinearGradient(
+                      colors: [Color.fromRGBO(3, 163, 99, 1),Color.fromRGBO(8, 199, 68, 1)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight
+                    )
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        Padding(
+                          padding: EdgeInsets.only(right:10,left:10),
+                          child: Text("New Listing",style:TextStyle(color:Colors.white)),
+                        ),
+                        Icon(Icons.add,size: 25,color: Colors.white)
+                      ],
+                    ),
                   )
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Padding(
-                        padding: EdgeInsets.only(right:10,left:10),
-                        child: Text("New Listing",style:TextStyle(color:Colors.white)),
-                      ),
-                      Icon(Icons.add,size: 25,color: Colors.white)
-                    ],
-                  ),
-                )
               )
             )
           ],
@@ -219,6 +235,7 @@ class HomeState extends State<Home>{
 
   Future<List<Book>> getBookListings() async {
     var file = await DefaultAssetBundle.of(context).loadString('assets/books.json');
+    // Currently taking from static file. Save server results to jsonResponse
     var jsonResponse = json.decode(file);
     List<Book> books = [];
     for(var i in jsonResponse){
