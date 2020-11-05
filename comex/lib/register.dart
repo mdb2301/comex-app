@@ -70,7 +70,7 @@ class RegisterState extends State<Register> {
       try{
         await fauth.createUserWithEmailAndPassword(email: email.trim(), password: password.trim()).then(
           (value)=>{
-            user = CustomUser(username:username,email: email.trim(),dateJoined: DateTime.now()),
+            user = CustomUser(username:username,email: email.trim(),dateJoined: DateTime.now()), 
             Navigator.of(context).push(home(user))
           }
         );

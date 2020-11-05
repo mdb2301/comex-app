@@ -4,18 +4,28 @@ class Book{
 }
 
 class BookAPIQuery{
-  final String title,description,infoLink,image; final int pages;final double rating;final List authors;
+  final String title,description,infoLink,image,authors; final int pages;final dynamic rating;
   BookAPIQuery({this.title,this.description,this.image,this.infoLink,this.pages,this.rating,this.authors});
 
-  factory BookAPIQuery.fromJson(Map<String, dynamic> json){
-    return BookAPIQuery(
-      title: json["title"]==null?"Title":json['title'],
-      authors : json["authors"]==null?["No author details available"]:List<String>.from(json["authors"].map((x) => x)),
-      description: json["description"]==null?"Description":json["description"],
-      image: json["imageLinks"] == null ? null : (json["imageLinks"])["thumbnail"],
-      infoLink: json["infoLink"]==null ? "link" : json["infoLink"],
-      pages: json["pageCount"] == null ? -1 : json["pageCount"],
-      rating: json["averageRating"] == null ? null : json["averageRating"].toDouble()
-    );
+  factory BookAPIQuery.fromJson(Map<String, dynamic> map){
+    final jsonList = (map['items'] as List);
+    var books =  jsonList.map((jsonBook) => BookAPIQuery(
+            title: jsonBook['volumeInfo']['title'],
+            authors: (jsonBook['volumeInfo']['authors'] as List).join(', ').replaceAll('Authors', ''),
+            image: jsonBook['volumeInfo']['imageLinks']['smallThumbnail'],
+            infoLink: jsonBook['volumeInfo']['infoLink'],
+            description: jsonBook['volumeInfo']['description'],
+            pages: jsonBook['volumeInfo']['pageCount'],
+            rating: jsonBook['volumeInfo']['averageRating'],
+          ))
+      .toList();
+      return books[0];
+  }
+
+  void show(){
+    print("Title: "+this.title);
+    print("Authors: " + this.authors);
+    print("Pages: "+this.pages.toString());
+    print("Rating: "+this.rating.toString());
   }
 }
