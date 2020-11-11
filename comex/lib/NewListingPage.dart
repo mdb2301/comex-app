@@ -37,67 +37,67 @@ class NewListing extends State<NewListingPage>{
                   child: Column(
                       children: <Widget>[
                         Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: <Widget>[
-                              Container(
-                                child: Padding(
-                                  padding: const EdgeInsets.only(left:20,top:20),
-                                  child: GestureDetector(
-                                    onTap: ()=>Navigator.of(context).pop(),
-                                    child: Icon(Icons.arrow_back,size: 30,)
-                                  ),
-                                )
-                              ),                    
-                              Container(                 
-                                child: Padding(
-                                padding: const EdgeInsets.only(right:20,top:20),
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: <Widget>[
+                            Container(
+                              child: Padding(
+                                padding: const EdgeInsets.only(left:20,top:20),
                                 child: GestureDetector(
-                                  onTap: null,
-                                  child: Icon(Icons.bookmark_border,size:30),
-                                  // on tap Icons.bookmark
+                                  onTap: ()=>Navigator.of(context).pop(),
+                                  child: Icon(Icons.arrow_back,size: 30,)
                                 ),
                               )
+                            ),                    
+                            Container(                 
+                              child: Padding(
+                              padding: const EdgeInsets.only(right:20,top:20),
+                              child: GestureDetector(
+                                onTap: null,
+                                child: Icon(Icons.bookmark_border,size:30),
+                                // on tap Icons.bookmark
+                              ),
                             )
-                            ],
-                          ),
-                          Padding(
-                            padding: EdgeInsets.only(top:60,left:45,right:20,bottom:17),
-                            child: Container(  
-                              child: TextField(
-                                controller: ctrl,
-                                onChanged: (value){
-                                  setState(() {
-                                    queryText = value;
-                                  });
-                                },
-                                decoration: InputDecoration(
-                                  fillColor: Color.fromRGBO(69,69,69,1),
-                                  border: InputBorder.none,
-                                  hintText: "Search a Book",
-                                  hintStyle: TextStyle(color: Color.fromRGBO(69,69,69,0.5)),
-                                  suffixIcon: Container(
-                                    width:40,
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.black38),
-                                      borderRadius: BorderRadius.circular(23)
-                                    ),
-                                    child: GestureDetector(
-                                      onTap: searchBook,
-                                      child: Icon(Icons.search),
-                                    ),
-                                  ) 
-                                ),
+                          )
+                          ],
+                        ),
+                        Padding(
+                          padding: EdgeInsets.only(top:60,left:45,right:20,bottom:17),
+                          child: Container(  
+                            child: TextField(
+                              controller: ctrl,
+                              onChanged: (value){
+                                setState(() {
+                                  queryText = value;
+                                });
+                              },
+                              decoration: InputDecoration(
+                                fillColor: Color.fromRGBO(69,69,69,1),
+                                border: InputBorder.none,
+                                hintText: "Search a Book",
+                                hintStyle: TextStyle(color: Color.fromRGBO(69,69,69,0.5)),
+                                suffixIcon: Container(
+                                  width:40,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.black38),
+                                    borderRadius: BorderRadius.circular(23)
+                                  ),
+                                  child: GestureDetector(
+                                    onTap: searchBook,
+                                    child: Icon(Icons.search),
+                                  ),
+                                ) 
                               ),
                             ),
                           ),
-                          Visibility(
-                            visible: searched,
-                            child: BookResult(bookdata: bookdata,price: 12,)
-                          )
-                        ]
-                      ),
+                        ),
+                        Visibility(
+                          visible: searched,
+                          child: BookResult(bookdata: bookdata,price: 12,user:widget.user)
+                        )
+                      ]
+                    ),
+                  ),
                 ),
-              ),
               ]  
             ),
         )
@@ -128,20 +128,22 @@ class NewListing extends State<NewListingPage>{
 
 class BookResult extends StatefulWidget {
   final BookAPIQuery bookdata;
-  final int price;
-  BookResult({this.bookdata,this.price});
+  final int price;final CustomUser user;
+  BookResult({this.bookdata,this.price,this.user});
   @override
   _BookResultState createState() => _BookResultState();
 }
 
 class _BookResultState extends State<BookResult> {
-  BookAPIQuery bookdata;int price;TextEditingController textctrl;
+  BookAPIQuery bookdata;int price;TextEditingController textctrl;CustomUser user;bool error;
   @override
   void initState(){
     super.initState();
     bookdata = widget.bookdata;
     price = 12;
+    error = false;
     textctrl = TextEditingController(text: price.toString());
+    user = widget.user;
   }
   @override
   Widget build(BuildContext context) {
@@ -304,7 +306,14 @@ class _BookResultState extends State<BookResult> {
                   )
                 ),
               ),
+            ),
+            error ? 
+            Padding(
+              padding: EdgeInsets.only(top:10,bottom:10),
+              child: Center(child: Text("Error uploading book. Please try again later.",style: TextStyle(color: Colors.red,fontSize: 12),),)
             )
+            : Container()
+            
           ], 
         ) 
       )
@@ -317,18 +326,32 @@ class _BookResultState extends State<BookResult> {
     }
   }
 
-  listBook(){
+  listBook() async {
     if(bookdata != null){
-      var response = http.post('https://guarded-cove-87354.herokuapp.com/books',
+      print("Title: "+bookdata.title);
+      var response = await http.post('https://guarded-cove-87354.herokuapp.com/books/'+user.firebaseId.toString(),
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8',
         },
         body: jsonEncode(<String, String>{
           'name':bookdata.title,
           'pages':bookdata.pages.toString(),
-          'authors':bookdata.authors,
-          
+          'author':bookdata.authors,
+          'description':bookdata.description,
+          'avg_rating':bookdata.rating.toString(),
+          'thumbnail_link':bookdata.image,
+          'google_link':bookdata.infoLink,
+          'price':price.toString()
         }));
+      print(response.statusCode);
+      if(response.statusCode==200){
+        Navigator.of(context).pop();
+      }else{
+        print(response.body);
+        setState(() {
+          error = true;
+        });
+      }
     }
   }
 }

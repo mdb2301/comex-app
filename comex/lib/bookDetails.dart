@@ -1,19 +1,23 @@
 import 'package:comex/Book.dart';
+import 'package:comex/User.dart';
 import 'package:flutter/material.dart';
 
 class BookDetailsPage extends StatefulWidget {
-  final Book book;
+  final BookAPIQuery book;final CustomUser user;
   final int index;
-  BookDetailsPage({this.index,this.book});
+  BookDetailsPage({this.index,this.book,this.user});
   @override
   BookDetailsState createState() => BookDetailsState();
 }
 
 class BookDetailsState extends State<BookDetailsPage> {
-  Book book;
+  BookAPIQuery book;
+  CustomUser currentUser;
   @override
   void initState() {
-    book = super.widget.book;
+    book = widget.book;
+    currentUser = widget.user;
+    print("Title: "+book.title);
     super.initState();
   }
   @override
@@ -54,7 +58,7 @@ class BookDetailsState extends State<BookDetailsPage> {
                     padding: const EdgeInsets.only(left:120.0,right:120.0,top:30),
                     child: Hero(
                       tag: widget.index.toString(),
-                      child: Image.asset(
+                      child: Image.network(
                         book.image,
                         scale: 1.5,
                       ),
@@ -64,14 +68,14 @@ class BookDetailsState extends State<BookDetailsPage> {
                     padding: const EdgeInsets.only(top:20.0,left:30,right:30),
                     child: Center(
                       child: Container(
-                        child: Text(book.name,textAlign: TextAlign.center,style: TextStyle(fontWeight: FontWeight.w700,fontSize: 25)),
+                        child: Text(book.title,textAlign: TextAlign.center,style: TextStyle(fontWeight: FontWeight.w700,fontSize: 25)),
                       ),
                     ),
                   ),
                   Padding(
                     padding: const EdgeInsets.only(top:8,left:8,right:8,bottom:20),
                     child: Container(
-                      child: Text(book.author,style: TextStyle(color: Color.fromRGBO(153, 153, 153, 1),fontWeight: FontWeight.w700)),
+                      child: Text(book.authors,style: TextStyle(color: Color.fromRGBO(153, 153, 153, 1),fontWeight: FontWeight.w700)),
                     ),
                   ),
                   Container(        // Size of the container adjusted according to screen
@@ -124,7 +128,7 @@ class BookDetailsState extends State<BookDetailsPage> {
                             Container(
                               margin: EdgeInsets.only(bottom: 90),
                               child: Text(
-                                book.description,
+                                book.description!=null ? book.description : "Description",
                                 style: TextStyle(color: Color.fromRGBO(0, 0, 0, 1)),
                                 textAlign: TextAlign.justify,
                                 ),

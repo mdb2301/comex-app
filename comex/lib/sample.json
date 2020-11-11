@@ -113,3 +113,29 @@
     "quoteSharingAllowed": false
   }
 }
+
+{
+  "Books":[
+    {"_id":"5fa937c4e6a0670017fd73fa",
+      "firebase_id":"Fk3mjaNYcse8AfARYNoSzQddRlf2",
+      "name":"Mossad",
+      "pages":400,
+      "author":"Michael Bar-Zohar, Nissim Mishal",
+      "description":"INTERNATIONAL BESTSELLER The Greatest Missions of the Israeli Secret Service For decades, Israel’s renowned security arm, the Mossad, has been widely recognized as the best intelligence service in the world. In Mossad, authors Michael Bar-Zohar and Nissim Mishal take us behind the closed curtain with riveting, eye-opening, boots-on-the-ground accounts of the most dangerous, most crucial missions in the agency's 60-year history. These are real, true Mission: Impossible stories brimming with high-octane action – right from the breath-taking capture of Nazi executioner Adolph Eichmann to the recent elimination of key Iranian nuclear scientists. If you are fascinated by the world of international espionage, intelligence, and covert “Black-Ops” warfare, then you will definitely find that the Mossad makes for some electrifying reading. Michael Bar-Zohar has fought in four Israeli-Arab wars, spent nine years beside David Ben-Gurion, Israel’s founder, become a fervent supporter of peace between Israel and her neighbours and served two terms in Parliament. He has written over 30 books and also won several major awards for his screenplays. Nissim Mishal is one of the foremost TV personalities in Israel and the Director-General of Israeli state television. Apart from writing best-selling books about the history of Israel he has also co-authored a book on two thousand years of Judaism.",
+      "avg_rating":4.5,
+      "thumbnail_link":"http://books.google.com/books/content?id=3gmPCwAAQBAJ&printsec=frontcover&img=1&zoom=5&edge=curl&source=gbs_api",
+      "google_link":"https://play.google.com/store/books/details?id=3gmPCwAAQBAJ&source=gbs_api",
+      "price":15,
+      "__v":0},
+      {"_id":"5fa93873e6a0670017fd73fb",
+        "firebase_id":"Fk3mjaNYcse8AfARYNoSzQddRlf2",
+        "name":"The World of Ice & Fire",
+        "pages":336,
+        "author":"George R. R. Martin, Elio Garcia, Linda Antonsson",
+        "description":"NEW YORK TIMES BESTSELLER • The perfect holiday gift for fans of A Song of Ice and Fire and HBO’s Game of Thrones—an epic history of Westeros and the lands beyond, featuring hundreds of pages of all-new material from George R. R. Martin! If the past is prologue, then George R. R. Martin’s masterwork—the most inventive and entertaining fantasy saga of our time—warrants one hell of an introduction. At long last, it has arrived with The World of Ice & Fire. This lavishly illustrated volume is a comprehensive history of the Seven Kingdoms, providing vividly constructed accounts of the epic battles, bitter rivalries, and daring rebellions that lead to the events of A Song of Ice and Fire and HBO’s Game of Thrones. In a collaboration that’s been years in the making, Martin has teamed with Elio M. García, Jr., and Linda Antonsson, the founders of the renowned fan site Westeros.org—perhaps the only people who know this world almost as well as its visionary creator. Collected here is all the accumulated knowledge, scholarly speculation, and inherited folk tales of maesters and septons, maegi and singers, including • artwork and maps, with more than 170 original pieces • full family trees for Houses Stark, Lannister, and Targaryen • in-depth explorations of the history and culture of Westeros • 100% all-new material, more than half of which Martin wrote specifically for this book The definitive companion piece to George R. R. Martin’s dazzlingly conceived universe, The World of Ice & Fire is indeed proof that the pen is mightier than a storm of swords.",
+        "avg_rating":4,
+        "thumbnail_link":"http://books.google.com/books/content?id=hapdAAAAQBAJ&printsec=frontcover&img=1&zoom=5&edge=curl&source=gbs_api",
+        "google_link":"http://books.google.co.in/books?id=hapdAAAAQBAJ&dq=the+song+of+ice+and+fire&hl=&source=gbs_api",
+        "price":12,
+        "__v":0},
+]}

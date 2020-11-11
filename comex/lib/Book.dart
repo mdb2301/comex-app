@@ -1,11 +1,13 @@
+import 'package:firebase_auth/firebase_auth.dart';
+
 class Book{
   final String id,name,author,image,listedBy,description;final int price,pages;
   Book({this.id,this.name,this.author,this.price,this.listedBy,this.image,this.description,this.pages});
 }
 
 class BookAPIQuery{
-  final String title,description,infoLink,image,authors; final int pages;final dynamic rating;
-  BookAPIQuery({this.title,this.description,this.image,this.infoLink,this.pages,this.rating,this.authors});
+  final String title,description,infoLink,image,authors; final int pages,price;final dynamic rating;String listedBy;
+  BookAPIQuery({this.listedBy,this.title,this.description,this.image,this.infoLink,this.pages,this.rating,this.authors,this.price});
 
   factory BookAPIQuery.fromJson(Map<String, dynamic> map){
     final jsonList = (map['items'] as List);
