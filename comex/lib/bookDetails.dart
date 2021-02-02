@@ -1,5 +1,5 @@
 import 'package:comex/Book.dart';
-import 'package:comex/User.dart';
+import 'package:comex/CustomUser.dart';
 import 'package:flutter/material.dart';
 
 class BookDetailsPage extends StatefulWidget {

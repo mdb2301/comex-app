@@ -9,7 +9,7 @@ import 'package:flutter/widgets.dart';
 
 import 'Book.dart';
 import 'NewListingPage.dart';
-import 'User.dart';
+import 'CustomUser.dart';
 
 class Home extends StatefulWidget{
   final CustomUser user;final dynamic auth;
@@ -41,8 +41,8 @@ class HomeState extends State<Home>{
     if(res.statusCode==200){
       var jsonData = json.decode(res.body);
       setState(() {
-        user = CustomUser(username: jsonData["name"],email: jsonData["email"],firebaseId: jsonData["firebase_id"]);
-        print(user.username);
+        user = CustomUser(name: jsonData["name"],email: jsonData["email"],firebaseId: jsonData["firebase_id"]);
+        print(user.name);
       });
     }else{
       print(res.body);
