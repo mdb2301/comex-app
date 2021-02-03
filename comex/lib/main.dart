@@ -1,13 +1,10 @@
-import 'dart:convert';
+import 'package:comex/API.dart';
+import 'package:comex/Authentication.dart';
+import 'package:comex/Storage.dart';
 import 'package:comex/register.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter_facebook_login/flutter_facebook_login.dart';
-import 'User.dart';
+import 'CustomUser.dart';
 import 'home.dart';
-import 'package:http/http.dart' as http;
 void main() {
   runApp(MyApp());
 }
@@ -23,7 +20,69 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Mulish',
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: Login()//Login(),
+      home: SplashScreen()
+    );
+  }
+}
+
+class SplashScreen extends StatefulWidget {
+  @override
+  _SplashScreenState createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  Route login(){
+    return PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => Login(),
+      transitionsBuilder: (context, animation, secondaryAnimation, child){
+        return SlideTransition(
+          position: animation.drive(Tween(begin:Offset(-1,0),end:Offset.zero)),
+          child: child,
+        );
+      },
+    );
+  }
+
+  Route home(CustomUser user,dynamic auth){
+    return PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => Home(user: user,auth:auth),
+      transitionsBuilder: (context, animation, secondaryAnimation, child){
+        return SlideTransition(
+          position: animation.drive(Tween(begin:Offset(-1,0),end:Offset.zero)),
+          child: child,
+        );
+      },
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    checkStorage();
+  }
+
+  checkStorage() async {
+    StorageResponse res = await Storage().read();
+    if(res.isLoggedIn != null){
+      if(res.isLoggedIn){
+        var r = await API().getUser(res.firebaseId);
+        if(r.code==0){
+          Navigator.of(context).push(home(r.user,res.type));
+          return;
+        } 
+      }        
+    }
+    Navigator.of(context).push(login());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body:Container(
+        child:Center(
+          child: Text("ComEx")
+        )
+      )
     );
   }
 }
@@ -34,34 +93,17 @@ class Login extends StatefulWidget {
 }
 
 class LoginState extends State<Login> {
-  String email,password;bool emailError,passwordError,hide,loading;FirebaseAuth fauth;CustomUser user;GoogleSignIn googleSignIn;FacebookLogin facebookLogin;
+  bool emailError,passwordError,hide,loading;CustomUser user;
   TextEditingController emailcontroller,passwordcontroller;
   @override
   void initState(){
-    getApp();
     emailcontroller = TextEditingController();
     passwordcontroller = TextEditingController();
     emailError = false;
     passwordError = false;
     hide = true;
     loading = false;
-    googleSignIn = GoogleSignIn();
-//    Commenting this out as navigation should happen after we communicate with our server
-//    googleSignIn.onCurrentUserChanged.listen((account) {
-//      if(account != null){
-//        user = CustomUser(username: account.displayName,email: account.email);
-//        Navigator.of(context).push(home(user));
-//      }
-//    });
-    facebookLogin = FacebookLogin();
     super.initState();
-  }
-
-  getApp() async{
-    FirebaseApp app = await Firebase.initializeApp();
-    setState(() {
-      fauth = FirebaseAuth.instanceFor(app:app);
-    });
   }
 
   Route register(){
@@ -89,346 +131,293 @@ class LoginState extends State<Login> {
   }
 
   signin() async {
-    print('signin() called');
     setState(() {
       loading = true;
     });
-    try{
-      await fauth.signInWithEmailAndPassword(email: email.trim(), password: password.trim()).then(
-        (value)=>{
-          user = CustomUser(firebaseId:value.user.uid,email: email.trim()),
-          setState((){
-            emailcontroller.clear();
-            passwordcontroller.clear();
-            loading = false;
-          }),
-          Navigator.of(context).push(home(user,fauth))
+    final email = emailcontroller.value.text.trim();
+    final password = passwordcontroller.value.text.trim();
+    final auth = Email();
+    AuthResponse res = await auth.signInWithEmailAndPassword(email, password);
+    switch(res.code){
+      case 0:
+        final apiResponse = await API().getUser(res.user.firebaseId);
+        if(apiResponse.code==0){
+          final storage = Storage();
+          final r = await storage.write(apiResponse.user.firebaseId,auth.type);
+          if(r.code==0){
+            Navigator.of(context).push(home(res.user,auth.type));
+          }
         }
-      );
-    } on FirebaseAuthException catch(e){
-      if(e.code == 'user-not-found'){
+        break;
+      case 1:
         setState(() {
           emailError = true;
           loading = false;
         });
-      }
-      if(e.code == 'wrong-password'){
+        break;
+      case 2:
         setState(() {
           passwordError = true;
           loading = false;
         });
-      }
     }
   }
 
   facebook() async {
-    print(facebookLogin.runtimeType.toString());
-    var res = await facebookLogin.logIn(['email','name']);
-    var token = res.accessToken.token;
-    var graphResponse = await http.get('https://graph.facebook.com/v2.12/me?fields=name,first_name,last_name,email&access_token=${token}');
-    var profile = json.decode(graphResponse.body);
-    user = CustomUser(firebaseId: profile["id"],email: profile["email"],username: profile["name"],dateJoined: DateTime.now());
-    setState((){
-      loading = false;
-      emailcontroller.clear();
-      passwordcontroller.clear();
+    setState(() {
+      loading = true;
     });
-    Navigator.of(context).push(home(user,facebookLogin));
+    final facebookauth = Facebook();
+    facebookauth.continueWithFacebook().then((res){
+      if(res.code==0){
+        API().getUser(res.user.firebaseId).then((apiResponse){
+          if(apiResponse.code==0){
+            setState(() {
+              loading = false;
+            });
+            Navigator.of(context).push(home(user,facebookauth.type));
+          }
+        });
+      }else{
+        //error dialog
+      }
+    });
+    
   }
 
   google() async {
-    print(googleSignIn.runtimeType.toString());
-    final GoogleSignInAccount googleSignInAccount = await googleSignIn.signIn();
-    final GoogleSignInAuthentication googleSignInAuthentication = await googleSignInAccount.authentication;
-
-    final AuthCredential credential = GoogleAuthProvider.credential(
-      accessToken: googleSignInAuthentication.accessToken,
-      idToken: googleSignInAuthentication.idToken,
-    );
-
-    final UserCredential authResult = await fauth.signInWithCredential(credential);
-    final User gUser = authResult.user;
-
-    if (gUser != null) {
-//      user = CustomUser(email: gUser.email, username: gUser.displayName, dateJoined: DateTime.now(), firebaseId: gUser.uid);
-      print('Signed in with Google: ' + gUser.displayName + ' ' + gUser.email + ' ' + gUser.uid);
-      getUserDataFromServer(gUser);
-    } else {
-      print('Why is user null? :(');
-    }
-  }
-
-  getUserDataFromServer(User user) async {
-    //  This functions sends Firebase User's data to our server to fetch his details
-    //  The response will contain necessary info that will be required to handle routing and populating the UI
-    //  This function will be common to both Firebase and Google login
-
-    final http.Response response = await http.post(
-        'https://guarded-cove-87354.herokuapp.com/users/',
-        headers: <String, String>{
-          'Content-Type': 'application/json; charset=UTF-8',
-        },
-        body: jsonEncode(<String, String>{
-//          TODO: Split user.displayName into first_name and last_name
-          'first_name': user.displayName,
-          'last_name': 'temp',
-          'email': user.email,
-          'firebase_id': user.uid
-        }),
-      );
-
-      if(response.statusCode == 200) {
-//      Server will tell us whether profile is updated or not
-//      If yes, take him to the home page, else take him to the profile update page
-        CustomUser userFromServer = CustomUser.fromJson(jsonDecode(response.body));
-
-        if(userFromServer.profileUpdated) {
-          // to home page
-          // TODO: Server will also send other data about his profile, later on
-          // TODO: This data can be passed on to the home page to populate the screen
-          setState((){
-            emailcontroller.clear();
-            passwordcontroller.clear();
-            loading = false;
-          });
-          Navigator.of(context).push(home(userFromServer,googleSignIn));
-          print('Redirected to home page');
-        } else {
-//          to profile update page
-          print('Redirected to profile update page');
-        }
-      } else {
-        print('Request error: ' + response.body);
+    final googleSignIn = Google();
+    final res = await googleSignIn.continueWithGoogle();
+    if(res.code==0){
+      final apiResponse = await API().getUser(res.user.firebaseId);
+      if(apiResponse.code==0){
+        Navigator.of(context).push(home(user,googleSignIn.type));
       }
+    }else{
+      print(res.code);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: SingleChildScrollView(
-          child: Stack(
-            children: <Widget>[
-              Column(
-                children: <Widget>[
-                  Container(
-                    alignment: Alignment.centerRight,
-                    child: Padding(
-                      padding: const EdgeInsets.only(right:20,top:20),
-                      child: GestureDetector(
-                        onTap: null,
-                        child: Text("Trouble logging in?",style:TextStyle(fontSize: 15,color:Color.fromRGBO(8, 199, 68, 1)))
-                      ),
-                    )
-                  ),
-                  Container(
-                    alignment: Alignment.topLeft,
-                    child:Padding(
-                      padding: const EdgeInsets.only(top:30,left:50),
-                      child: Text("Login",style:TextStyle(fontSize: 50,color:Color.fromRGBO(69, 69, 69, 1))),
-                    )
-                  ),
-                  Container(
-                    alignment: Alignment.centerLeft,
-                    child:Padding(
-                      padding: const EdgeInsets.only(top:50,left:60,right:40),
-                      child: Row(
-                        children: <Widget>[
-                          Text("Email",style:TextStyle(fontSize: 18,color:Color.fromRGBO(82,93,92,1))),
-                          Expanded(child: Container(),),
-                          Visibility(
-                            visible: emailError,
-                            child: Text("Invalid Email",style:TextStyle(color:Colors.red[400])),
-                          )
-                        ],
-                      ),
-                    )
-                  ),
-                  Container(
-                    alignment: Alignment.center,
-                    child:Padding(
-                      padding: const EdgeInsets.only(top:10,left:40,right:40),
-                      child: TextField(
-                        controller: emailcontroller,
-                        onChanged: (value)=>{
-                          setState((){
-                            email = value;
-                          })
-                        },
-                        style: TextStyle(fontSize: 20),
-                        decoration: InputDecoration(
-                          contentPadding: EdgeInsets.symmetric(vertical:13),
-                          filled: true,
-                          fillColor: emailError ? Colors.red[100] : Color.fromRGBO(246, 246, 246, 1),
-                          prefixIcon: Icon(Icons.alternate_email),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(30)
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(30)
-                          ), 
+    return WillPopScope(
+      onWillPop: null,
+      child: SafeArea(
+        child: Scaffold(
+          backgroundColor: Colors.white,
+          body: SingleChildScrollView(
+            child: Stack(
+              children: <Widget>[
+                Column(
+                  children: <Widget>[
+                    Container(
+                      alignment: Alignment.centerRight,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right:20,top:20),
+                        child: GestureDetector(
+                          onTap: null,
+                          child: Text("Trouble logging in?",style:TextStyle(fontSize: 15,color:Color.fromRGBO(8, 199, 68, 1)))
                         ),
-                      ),
-                    )
-                  ),
-                  Container(
-                    alignment: Alignment.centerLeft,
-                    child:Padding(
-                      padding: const EdgeInsets.only(top:30,left:60,right:40),
-                      child: Row(
-                        children: <Widget>[
-                          Text("Password",style:TextStyle(fontSize: 18,color:Color.fromRGBO(82,93,92,1))),
-                          Expanded(child: Container(),),
-                          Visibility(
-                            visible: passwordError,
-                            child: Text("Incorrect Password",style:TextStyle(color:Colors.red[400])),
-                          )
-                        ],
-                      ),
-                    )
-                  ),
-                  Container(
-                    alignment: Alignment.center,
-                    child:Padding(
-                      padding: const EdgeInsets.only(top:10,left:40,right:40),
-                      child: TextField(
-                        controller: passwordcontroller,
-                        onChanged: (value)=>{
-                          setState((){
-                            password = value;
-                          })
-                        },
-                        obscureText: true,
-                        style: TextStyle(fontSize: 20),
-                        decoration: InputDecoration(
-                          contentPadding: EdgeInsets.symmetric(vertical:13),
-                          filled: true,
-                          fillColor: passwordError ? Colors.red[100] : Color.fromRGBO(246, 246, 246, 1),
-                          prefixIcon: Icon(Icons.lock_outline),
-                          suffixIcon:GestureDetector(
-                            onTap: ()=>{
-                              setState((){
-                                hide = !hide;
-                              })
-                            },
-                            child: Icon(hide ? Icons.visibility_off : Icons.visibility,color:Colors.black),
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(30)
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(30)
-                          ), 
-                        ),
-                      ),
-                    )
-                  ),
-                  Container(
-                    alignment: Alignment.centerRight,
-                    child: Padding(
-                      padding: const EdgeInsets.only(right:60,top:20),
-                      child: GestureDetector(
-                        onTap: null,
-                        child: Text("Forgot password?",style:TextStyle(fontSize: 16,color:Color.fromRGBO(8, 199, 68, 1)))
-                      ),
-                    )
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top:20),
-                    child: Container(
-                      width: 200,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(30),
-                        gradient: LinearGradient(
-                          colors: [Color.fromRGBO(3, 163, 99, 1),Color.fromRGBO(8, 199, 68, 1)],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight
-                        )
-                      ),
-                      alignment: Alignment.center,
-                      child: MaterialButton(
-                        onPressed: signin,
+                      )
+                    ),
+                    Container(
+                      alignment: Alignment.topLeft,
+                      child:Padding(
+                        padding: const EdgeInsets.only(top:30,left:50),
+                        child: Text("Login",style:TextStyle(fontSize: 50,color:Color.fromRGBO(69, 69, 69, 1))),
+                      )
+                    ),
+                    Container(
+                      alignment: Alignment.centerLeft,
+                      child:Padding(
+                        padding: const EdgeInsets.only(top:50,left:60,right:40),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
                           children: <Widget>[
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Text("Log In",style:TextStyle(color:Colors.white,fontSize: 18)),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(left:10),
-                              child: Icon(Icons.exit_to_app,color:Colors.white),
+                            Text("Email",style:TextStyle(fontSize: 18,color:Color.fromRGBO(82,93,92,1))),
+                            Expanded(child: Container(),),
+                            Visibility(
+                              visible: emailError,
+                              child: Text("Invalid Email",style:TextStyle(color:Colors.red[400])),
                             )
                           ],
                         ),
                       )
                     ),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.only(top: 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        Text("Don't have an account? ",style:TextStyle(fontSize:15,fontFamily: 'Mulish-Reg')),
-                        GestureDetector(
-                          onTap: ()=>Navigator.of(context).push(register()),
-                          child: Text("Sign up",style:TextStyle(fontSize:15))
-                        )
-                      ],
-                    )
-                  ),
-                  Padding(
-                    padding: EdgeInsets.only(top:30,left:30,right:30),
-                    child: Image.asset('assets/or.png')
-                  ),
-                  Padding(
-                    padding: EdgeInsets.only(top:30,bottom:20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal:20),
-                          child: GestureDetector(
-                            onTap: ()=>facebook(),
-                            child: Image.asset('assets/fb.png',scale: 2.5,)
+                    Container(
+                      alignment: Alignment.center,
+                      child:Padding(
+                        padding: const EdgeInsets.only(top:10,left:40,right:40),
+                        child: TextField(
+                          controller: emailcontroller,
+                          style: TextStyle(fontSize: 20),
+                          decoration: InputDecoration(
+                            contentPadding: EdgeInsets.symmetric(vertical:13),
+                            filled: true,
+                            fillColor: emailError ? Colors.red[100] : Color.fromRGBO(246, 246, 246, 1),
+                            prefixIcon: Icon(Icons.alternate_email),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30)
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30)
+                            ), 
                           ),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal:20),
-                          child: GestureDetector(
-                            onTap: ()=>google(),
-                            child: Image.asset('assets/google.png',scale: 2.5,)
+                      )
+                    ),
+                    Container(
+                      alignment: Alignment.centerLeft,
+                      child:Padding(
+                        padding: const EdgeInsets.only(top:30,left:60,right:40),
+                        child: Row(
+                          children: <Widget>[
+                            Text("Password",style:TextStyle(fontSize: 18,color:Color.fromRGBO(82,93,92,1))),
+                            Expanded(child: Container(),),
+                            Visibility(
+                              visible: passwordError,
+                              child: Text("Incorrect Password",style:TextStyle(color:Colors.red[400])),
+                            )
+                          ],
+                        ),
+                      )
+                    ),
+                    Container(
+                      alignment: Alignment.center,
+                      child:Padding(
+                        padding: const EdgeInsets.only(top:10,left:40,right:40),
+                        child: TextField(
+                          controller: passwordcontroller,
+                          obscureText: true,
+                          style: TextStyle(fontSize: 20),
+                          decoration: InputDecoration(
+                            contentPadding: EdgeInsets.symmetric(vertical:13),
+                            filled: true,
+                            fillColor: passwordError ? Colors.red[100] : Color.fromRGBO(246, 246, 246, 1),
+                            prefixIcon: Icon(Icons.lock_outline),
+                            suffixIcon:GestureDetector(
+                              onTap: ()=>{
+                                setState((){
+                                  hide = !hide;
+                                })
+                              },
+                              child: Icon(hide ? Icons.visibility_off : Icons.visibility,color:Colors.black),
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30)
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30)
+                            ), 
+                          ),
+                        ),
+                      )
+                    ),
+                    Container(
+                      alignment: Alignment.centerRight,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right:60,top:20),
+                        child: GestureDetector(
+                          onTap: null,
+                          child: Text("Forgot password?",style:TextStyle(fontSize: 16,color:Color.fromRGBO(8, 199, 68, 1)))
+                        ),
+                      )
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top:20),
+                      child: Container(
+                        width: 200,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(30),
+                          gradient: LinearGradient(
+                            colors: [Color.fromRGBO(3, 163, 99, 1),Color.fromRGBO(8, 199, 68, 1)],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight
+                          )
+                        ),
+                        alignment: Alignment.center,
+                        child: MaterialButton(
+                          onPressed: signin,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: <Widget>[
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Text("Log In",style:TextStyle(color:Colors.white,fontSize: 18)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(left:10),
+                                child: Icon(Icons.exit_to_app,color:Colors.white),
+                              )
+                            ],
                           ),
                         )
-                      ],
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.only(top: 20),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          Text("Don't have an account? ",style:TextStyle(fontSize:15,fontFamily: 'Mulish-Reg')),
+                          GestureDetector(
+                            onTap: ()=>Navigator.of(context).push(register()),
+                            child: Text("Sign up",style:TextStyle(fontSize:15))
+                          )
+                        ],
+                      )
+                    ),
+                    Padding(
+                      padding: EdgeInsets.only(top:30,left:30,right:30),
+                      child: Image.asset('assets/or.png')
+                    ),
+                    Padding(
+                      padding: EdgeInsets.only(top:30,bottom:20),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal:20),
+                            child: GestureDetector(
+                              onTap: ()=>facebook(),
+                              child: Image.asset('assets/fb.png',scale: 2.5,)
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal:20),
+                            child: GestureDetector(
+                              onTap: ()=>google(),
+                              child: Image.asset('assets/google.png',scale: 2.5,)
+                            ),
+                          )
+                        ],
+                      )
+                    ),
+                    Container(
+                      alignment: Alignment.bottomCenter,
+                      child: Image.asset('assets/bottom.png')
                     )
-                  ),
-                  Container(
-                    alignment: Alignment.bottomCenter,
-                    child: Image.asset('assets/bottom.png')
-                  )
-                ],
-              ),
-              loading ? 
-              Container(
-                width: MediaQuery.of(context).size.width,
-                height: MediaQuery.of(context).size.height,
-                color: Colors.black26,
-                child: Center(
-                  child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color.fromRGBO(3, 163, 99, 1))),
+                  ],
                 ),
-              ):
-              Positioned(
-                bottom: 0,
-                height: 0,
-                width: 0,
-                child: Container()
-              )
-            ],
-          ),
+                loading ? 
+                Container(
+                  width: MediaQuery.of(context).size.width,
+                  height: MediaQuery.of(context).size.height,
+                  color: Colors.black26,
+                  child: Center(
+                    child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color.fromRGBO(3, 163, 99, 1))),
+                  ),
+                ):
+                Positioned(
+                  bottom: 0,
+                  height: 0,
+                  width: 0,
+                  child: Container()
+                )
+              ],
+            ),
+          )
         )
-      )
+      ),
     );
   }
 }

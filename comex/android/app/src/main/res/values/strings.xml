@@ -2,5 +2,5 @@
 <resources>
     <string name="app_name">Comex</string>
     <string name="facebook_app_id">806689553495824</string>
-    <string name="fb_login_protocol_scheme">fb000000000000</string>
+    <string name="fb_login_protocol_scheme">fb806689553495824</string>
 </resources>

@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
+import 'package:comex/API.dart';
 import 'package:http/http.dart' as http;
 import 'package:comex/Book.dart';
-import 'package:comex/User.dart';
+import 'package:comex/CustomUser.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -13,14 +15,15 @@ class NewListingPage extends StatefulWidget{
 }
 
 class NewListing extends State<NewListingPage>{
-  bool searched; BookAPIQuery bookdata;
-  String queryText; int price;
+  bool searched; List<BookAPIQuery> bookdata;
+  int price;
   TextEditingController ctrl,textctrl;
   @override
   void initState(){
     searched = false;
+    bookdata = List<BookAPIQuery>();
     ctrl = TextEditingController();
-    price = 12;
+    price = 120;
     textctrl = TextEditingController(text: price.toString());
     super.initState();
   }
@@ -65,11 +68,7 @@ class NewListing extends State<NewListingPage>{
                           child: Container(  
                             child: TextField(
                               controller: ctrl,
-                              onChanged: (value){
-                                setState(() {
-                                  queryText = value;
-                                });
-                              },
+                              onEditingComplete: searchBook,
                               decoration: InputDecoration(
                                 fillColor: Color.fromRGBO(69,69,69,1),
                                 border: InputBorder.none,
@@ -90,9 +89,41 @@ class NewListing extends State<NewListingPage>{
                             ),
                           ),
                         ),
-                        Visibility(
-                          visible: searched,
-                          child: BookResult(bookdata: bookdata,price: 12,user:widget.user)
+                        Padding(
+                          padding: EdgeInsets.symmetric(vertical:8,horizontal:12),
+                          child: GridView.builder(
+                            physics: NeverScrollableScrollPhysics(),
+                            shrinkWrap: true,
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount:2,childAspectRatio:0.8),
+                            itemCount: bookdata.length, 
+                            itemBuilder: (context,i){
+                              return GestureDetector(
+                                onTap: ()=>details(i),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    border: getBorder(i,bookdata.length)
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Padding(
+                                        padding: EdgeInsets.all(10),
+                                        child: Container(height:130,child: Center(child: Image.network(bookdata[i].image,scale:1.6))),
+                                      ),
+                                      Padding(
+                                        padding: EdgeInsets.only(top:15,left:15,right:15),
+                                        child: Text(bookdata[i].title,style:TextStyle(fontSize: 16)),
+                                      ),
+                                      Padding(
+                                        padding: EdgeInsets.only(bottom:15,left:15,right:15),
+                                        child: Text(bookdata[i].authors,style:TextStyle(color: Color.fromRGBO(69,69,69,0.5))),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }
+                          ),
                         )
                       ]
                     ),
@@ -104,17 +135,57 @@ class NewListing extends State<NewListingPage>{
       );         
   }
 
+  details(int i){
+    showDialog(
+      context: context,
+      builder: (context){
+        return Dialog(
+          child: SingleChildScrollView(child: BookResult(bookdata:bookdata[i],user:widget.user))
+        );
+      }
+    );
+  }
 
+  getBorder(int i,int total){
+    final side = BorderSide(color:Color.fromRGBO(69,69,69,0.5),width:0.5);
+    if(i%2==0){ //left
+      if(i==0 || i==1){ //top
+        return Border(right:side,bottom:side);
+      }else{
+        if(i==total-1 || i==total-2){
+          return Border(right:side,top:side);
+        }
+        return Border(right:side,top:side,bottom:side);
+      }
+    }else{ //right
+      if(i==0 || i==1){ //top
+        return Border(left:side,bottom:side);
+      }else{
+        if(i==total-1 || i==total-2){
+          return Border(left:side,top:side);
+        }
+        return Border(left:side,top:side,bottom:side);
+      }
+    }
+  }
 
   searchBook() async {
+    setState(() {
+      bookdata = List<BookAPIQuery>();
+      FocusScope.of(context).unfocus();
+    });
     //final response = await http.get('https://www.googleapis.com/books/v1/volumes?q=$queryText&maxResults=1');
-    final response = await http.get('https://www.googleapis.com/books/v1/volumes?q=$queryText&maxResults=1');
+    final response = await http.get('https://www.googleapis.com/books/v1/volumes?q=${ctrl.value.text}');
     if(response.statusCode==200){
-      print(response.body);
       try{
+        final rawdata = json.decode(response.body)["items"];
+        print(rawdata[0]);
+        for(var i=0;i<rawdata.length;i++){
+          setState(() {
+            bookdata.add(fromJson(rawdata[i]));
+          });
+        }
         setState(() {
-          bookdata = BookAPIQuery.fromJson(json.decode(response.body));
-          bookdata.show();
           searched = true;
           ctrl.clear();
         });
@@ -122,6 +193,20 @@ class NewListing extends State<NewListingPage>{
         print("Book not found. Error message: "+ e.toString());
       }
     }
+  }
+
+  fromJson(map){
+    var vinfo = map["volumeInfo"];
+    return BookAPIQuery(
+      title: vinfo['title'],
+      authors: (vinfo['authors'] as List).join(', ').replaceAll('Authors', ''),
+      image: vinfo['imageLinks']['smallThumbnail'],
+      infoLink: vinfo['infoLink'],
+      description: vinfo['description'],
+      pages: vinfo['pageCount'],
+      rating: vinfo['averageRating'],
+      etag: vinfo["etag"]
+    );
   }
 }
 
@@ -135,13 +220,14 @@ class BookResult extends StatefulWidget {
 }
 
 class _BookResultState extends State<BookResult> {
-  BookAPIQuery bookdata;int price;TextEditingController textctrl;CustomUser user;bool error;
+  BookAPIQuery bookdata;int price;TextEditingController textctrl;CustomUser user;bool error,inProgress;
   @override
   void initState(){
     super.initState();
     bookdata = widget.bookdata;
     price = 12;
     error = false;
+    inProgress = false;
     textctrl = TextEditingController(text: price.toString());
     user = widget.user;
   }
@@ -162,7 +248,7 @@ class _BookResultState extends State<BookResult> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Container(width:180,child: Center(child: Text(bookdata.title,textAlign: TextAlign.center,style:TextStyle(fontSize: 25)))),
-                  Container(width:180,child: Center(child: Text(bookdata.authors,textAlign: TextAlign.center,style:TextStyle(fontSize:15,color: Color.fromRGBO(69,69,69,0.5))))),                                               
+                  Container(width:180,child: Center(child: Text(bookdata.authors??"N/A",textAlign: TextAlign.center,style:TextStyle(fontSize:15,color: Color.fromRGBO(69,69,69,0.5))))),                                               
                 ],
               ),
             ),
@@ -175,7 +261,7 @@ class _BookResultState extends State<BookResult> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
-                      Text(bookdata.rating.toString(),style: TextStyle(fontSize:25),),
+                      Text(bookdata.rating.toString()??"N/A",style: TextStyle(fontSize:25),),
                       Text("Rating",style:TextStyle(fontSize: 15,color: Color.fromRGBO(69, 69, 69, 0.8)))
                     ],
                   ),
@@ -186,7 +272,7 @@ class _BookResultState extends State<BookResult> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
-                      Text(bookdata.pages.toString(),style: TextStyle(fontSize:25),),
+                      Text(bookdata.pages.toString()??"N/A",style: TextStyle(fontSize:25),),
                       Text("Pages",style:TextStyle(fontSize: 15,color: Color.fromRGBO(69, 69, 69, 0.8)))
                     ],
                   )
@@ -200,7 +286,7 @@ class _BookResultState extends State<BookResult> {
                 children: <Widget>[
                   Text("About",style: TextStyle(fontWeight: FontWeight.bold,fontSize: 15),),
                   SizedBox(height: 10,),
-                  Text(bookdata.description,style: TextStyle(color: Color.fromRGBO(69, 69, 69, 0.8))),
+                  Text(bookdata.description??"N/A",style: TextStyle(color: Color.fromRGBO(69, 69, 69, 0.8))),
                   SizedBox(height:20),
                   GestureDetector(
                     onTap: openUrl,
@@ -307,6 +393,9 @@ class _BookResultState extends State<BookResult> {
                 ),
               ),
             ),
+            inProgress ? 
+            Center(child: Container(width:20,height:20,child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color.fromRGBO(3, 163, 99, 1)),)))
+            :
             error ? 
             Padding(
               padding: EdgeInsets.only(top:10,bottom:10),
@@ -326,32 +415,59 @@ class _BookResultState extends State<BookResult> {
     }
   }
 
-  listBook() async {
-    if(bookdata != null){
-      print("Title: "+bookdata.title);
-      var response = await http.post('https://guarded-cove-87354.herokuapp.com/books/'+user.firebaseId.toString(),
-        headers: <String, String>{
-          'Content-Type': 'application/json; charset=UTF-8',
-        },
-        body: jsonEncode(<String, String>{
-          'name':bookdata.title,
-          'pages':bookdata.pages.toString(),
-          'author':bookdata.authors,
-          'description':bookdata.description,
-          'avg_rating':bookdata.rating.toString(),
-          'thumbnail_link':bookdata.image,
-          'google_link':bookdata.infoLink,
-          'price':price.toString()
-        }));
-      print(response.statusCode);
-      if(response.statusCode==200){
-        Navigator.of(context).pop();
+  listBook() {
+    setState(() {
+      inProgress = true;
+    });
+    API().addBook(widget.user,bookdata,price).then((res){
+      if(res.code==0){
+        done();
       }else{
-        print(response.body);
+        print(res.message);
         setState(() {
           error = true;
+          inProgress = false;
         });
+      } 
+    });   
+  }
+
+  done(){
+    setState(() {
+      inProgress = false;
+    });
+    Timer(Duration(seconds: 2),(){
+      Navigator.of(context).pop();
+      Navigator.of(context).pop();
+    });
+    showDialog(
+      context: context,
+      builder: (context){
+        return Dialog(
+          backgroundColor: Colors.white,
+          child: Container(
+            width: 200,height:150,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text("Book Added Successfully!"),
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10),
+                  child: Container(
+                    width:30,height:30,
+                    decoration: BoxDecoration(
+                      color: Color.fromRGBO(8, 199, 68, 1),
+                      borderRadius: BorderRadius.circular(15)
+                    ),
+                    child: Center(child: Icon(Icons.check,color:Colors.white))
+                  ),
+                )
+              ],
+            )
+          ),
+        );
       }
-    }
+    );
   }
 }

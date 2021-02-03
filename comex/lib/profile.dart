@@ -1,37 +1,50 @@
-import 'package:comex/User.dart';
+import 'package:comex/Authentication.dart';
+import 'package:comex/CustomUser.dart';
+import 'package:comex/MyExchanges.dart';
+import 'package:comex/MyListings.dart';
+import 'package:comex/Storage.dart';
+import 'package:comex/main.dart';
 import 'package:flutter/material.dart';
 
 class ProfilePage extends StatefulWidget {
-  final CustomUser user;final dynamic auth;
+  final CustomUser user;final String auth;
   ProfilePage({this.user,this.auth});
   @override
   ProfileState createState() => ProfileState();
 }
 
 class ProfileState extends State<ProfilePage> {
-  CustomUser user;dynamic auth;int authtype;
+  CustomUser user;String auth;
   @override
   void initState() {
     user = widget.user;
-    auth = widget.auth;
-    print(user.username);
-    if(auth.runtimeType.toString()=="FirebaseAuth"){
-      setState(() {
-        authtype = 1;
-      });
-    }
-    if(auth.runtimeType.toString()=="FacebookLogin"){
-      setState(() {
-        authtype=2;
-      });
-    }
-    if(auth.runtimeType.toString()=="GoogleSignIn"){
-      setState(() {
-        authtype=3;
-      });
-    }
+    auth = widget.auth;   
     super.initState();
   }
+  Route listings(){
+    return PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => MyListings(user:user),
+      transitionsBuilder: (context, animation, secondaryAnimation, child){
+        return SlideTransition(
+          position: animation.drive(Tween(begin: Offset(1.0,0.0),end: Offset.zero)),
+          child: child,
+        );
+      },
+    );
+  }
+
+  Route exchanges(){
+    return PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => MyExchanges(user:user),
+      transitionsBuilder: (context, animation, secondaryAnimation, child){
+        return SlideTransition(
+          position: animation.drive(Tween(begin: Offset(1.0,0.0),end: Offset.zero)),
+          child: child,
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -68,13 +81,13 @@ class ProfileState extends State<ProfilePage> {
                         child: CircleAvatar(
                           radius: 40,
                           backgroundColor: Color.fromRGBO(8, 199, 68, 1),
-                          child: Text(user.username[0]+user.username[1],style: TextStyle(color: Colors.white,fontSize: 30),),
+                          child: Text(user.name[0]+user.name[1],style: TextStyle(color: Colors.white,fontSize: 30),),
                         ),
                       ),
                     ),
                     Padding(
                       padding: EdgeInsets.only(top: 30),
-                      child: Text(user.username,style: TextStyle(fontSize: 20),),
+                      child: Text(user.name,style: TextStyle(fontSize: 20),),
                     ),
                     Padding(
                       padding: EdgeInsets.only(top:20),
@@ -91,7 +104,7 @@ class ProfileState extends State<ProfilePage> {
                             children: <Widget>[
                               Image.asset('assets/dollar_2.png',scale: 2.8,),
                               SizedBox(width:10),
-                              Text("330 COINS",style: TextStyle(fontSize: 15),)
+                              Text(user.coins.toString(),style: TextStyle(fontSize: 15),)
                             ],
                           )
                         )
@@ -104,22 +117,21 @@ class ProfileState extends State<ProfilePage> {
                         children: <Widget>[
                           Column(
                             children: <Widget>[
-                              Text("15",style: TextStyle(fontSize: 30,color: Color.fromRGBO(67,67,67,1)),),Text("LISTINGS",style: TextStyle(color: Color.fromRGBO(82,93,92,1))) //82 93 92
+                              Text(user.listings.toString(),style: TextStyle(fontSize: 30,color: Color.fromRGBO(67,67,67,1)),),Text("LISTINGS",style: TextStyle(color: Color.fromRGBO(82,93,92,1))) //82 93 92
                             ],
                           ),
                           SizedBox(width: 60,),
                           Column(
                             children: <Widget>[
-                              Text("18",style: TextStyle(fontSize: 30,color: Color.fromRGBO(67,67,67,1)),),Text("EXCHANGES",style: TextStyle(color: Color.fromRGBO(82,93,92,1))) //82 93 92
+                              Text(user.exchanges.toString(),style: TextStyle(fontSize: 30,color: Color.fromRGBO(67,67,67,1)),),Text("EXCHANGES",style: TextStyle(color: Color.fromRGBO(82,93,92,1))) //82 93 92
                             ],
                           ),
                         ],
                       ),
                     ),
                     SizedBox(height:30),
-                    Option(icon: Icon(Icons.list),text: "My Listings",ontap:(){print("Listings");}),
-                    Option(icon: Image.asset('assets/trans.png',scale: 2.5,),text: "My Transactions",ontap:(){print("Trans");}),
-                    Option(icon: Image.asset('assets/settings.png',scale: 2.5,),text: "Account Settings",ontap:(){print("Settings");}),
+                    Option(icon: Icon(Icons.list),text: "My Listings",ontap:()=>Navigator.of(context).push(listings())),
+                    Option(icon: Image.asset('assets/trans.png',scale: 2.5,),text: "My Exchanges",ontap:()=>Navigator.of(context).push(exchanges())),
                     Padding(
                       padding: EdgeInsets.only(top:60,bottom:30),
                       child: Center(
@@ -145,21 +157,42 @@ class ProfileState extends State<ProfilePage> {
     );
   }  
 
-  logout(){
-    switch(authtype){
-      case 1:
-        auth.signOut();
+  Route login(){
+    return PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => Login(),
+      transitionsBuilder: (context, animation, secondaryAnimation, child){
+        return SlideTransition(
+          position: animation.drive(Tween(begin:Offset(-1,0),end:Offset.zero)),
+          child: child,
+        );
+      },
+    );
+  }
+
+  logout() async {
+    print(widget.auth);
+    
+    switch(widget.auth){
+      case "email":
+        Email().signOut();
+        if(await Storage().clear()){
+          Navigator.of(context).pushAndRemoveUntil(login(), (route) => false);
+        }
         break;
-      case 2:
-        auth.logOut();
+      case "google":
+        Email().signOut();
+        if(await Storage().clear()){
+          Navigator.of(context).pushAndRemoveUntil(login(), (route) => false);
+        }        
         break;
-      case 3:
-        auth.signOut();
+      case "facebook":
+        Email().signOut();
+        if(await Storage().clear()){
+          Navigator.of(context).pushAndRemoveUntil(login(), (route) => false);
+        }
         break;
     }
-    while(Navigator.of(context).canPop()){
-      Navigator.of(context).pop();
-    }
+
   }
 }
 

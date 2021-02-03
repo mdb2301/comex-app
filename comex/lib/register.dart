@@ -1,25 +1,20 @@
-import 'dart:convert';
-
-import 'package:comex/User.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
+import 'package:comex/API.dart';
+import 'package:comex/Authentication.dart';
+import 'package:comex/CustomUser.dart';
+import 'package:comex/Storage.dart';
 import 'package:flutter/material.dart';
 import 'package:comex/main.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'home.dart';
-import 'package:flutter_facebook_login/flutter_facebook_login.dart';
-import 'package:http/http.dart' as http;
 class Register extends StatefulWidget {
   @override
   RegisterState createState() => RegisterState();
 }
 
 class RegisterState extends State<Register> {
-  FirebaseAuth fauth;String email,password,confirmPassword,username;bool dontMatch,alreadyUsed,hide,chide,submit;CustomUser user;GoogleSignIn googleSignIn;FacebookLogin facebookLogin;
+  bool dontMatch,alreadyUsed,hide,chide,submit;CustomUser user;
   TextEditingController emailcontroller,usernamecontroller,passwordcontroller,confirmcontroller;
   @override
   void initState(){
-    getApp();
     dontMatch = false;
     alreadyUsed = false;
     hide = true;
@@ -29,22 +24,7 @@ class RegisterState extends State<Register> {
     usernamecontroller = TextEditingController();
     passwordcontroller = TextEditingController();
     confirmcontroller = TextEditingController();
-    googleSignIn = GoogleSignIn();
-    googleSignIn.onCurrentUserChanged.listen((account) {
-      if(account != null){
-        user = CustomUser(firebaseId:account.id,username: account.displayName,email: account.email,dateJoined: DateTime.now());
-        registerUser(user,googleSignIn);
-      }
-    });
-    facebookLogin = FacebookLogin();
     super.initState();
-  }
-
-  getApp() async{
-    FirebaseApp app = await Firebase.initializeApp();
-    setState(() {
-      fauth = FirebaseAuth.instanceFor(app:app);
-    });
   }
 
   Route login(){
@@ -71,26 +51,32 @@ class RegisterState extends State<Register> {
     );
   }
 
-  //Signin with email and password
   signin() async {
     setState(() {
       submit = true;
     });
-    if(password.trim() == confirmPassword.trim()){
-      try{
-        await fauth.createUserWithEmailAndPassword(email: email.trim(), password: password.trim()).then(
-          (value)=>{
-            user = CustomUser(firebaseId: value.user.uid,username:username,email: email.trim(),dateJoined: DateTime.now()),
-            registerUser(user,fauth)
-          }
-        );
-      } on FirebaseAuthException catch(e){
-        if(e.code == 'email-already-in-use'){
-          setState(() {
-            alreadyUsed = true;
-            submit = false;
-          });
+    final auth = Email();
+    final email = emailcontroller.value.text.trim();
+    final password = passwordcontroller.value.text.trim();
+    final confirm = confirmcontroller.value.text.trim();
+    final name = usernamecontroller.value.text.trim();
+    if(password==confirm){
+      AuthResponse res = await auth.signupWithEmailAndPassword(email, password, name);
+      if(res.code==0){
+        APIResponse r = await API().addUser(res.user);
+        if(r.code==0){
+          Navigator.of(context).push(home(r.user,auth.type));
+        }else{
+          print("Error registering"+res.message);
+          auth.deleteUser();
+          failed();
         }
+      }
+      if(res.code==2){
+        setState(() {
+          alreadyUsed = true;
+          submit = false;
+        });
       }
     }else{
       setState(() {
@@ -100,47 +86,67 @@ class RegisterState extends State<Register> {
     }
   }
 
-  facebook() async {
-    var res = await facebookLogin.logIn(['email','name']);
-    var token = res.accessToken.token;
-    var graphResponse = await http.get('https://graph.facebook.com/v2.12/me?fields=name,first_name,last_name,email&access_token=${token}');
-    var profile = json.decode(graphResponse.body);
-    user = CustomUser(firebaseId: profile["id"],email: profile["email"],username: profile["name"],dateJoined: DateTime.now());
-    registerUser(user,facebookLogin);
-  }
-
-  google() {
-    googleSignIn.signIn().catchError((error){
-      print("\n\nError is: " + error + "\n\n");
+  failed(){
+    setState(() {
+      submit = false;
+      emailcontroller.clear();
+      usernamecontroller.clear();
+      passwordcontroller.clear();
+      confirmcontroller.clear();
     });
   }
 
-  registerUser(CustomUser user,dynamic auth) async {
-    print("Username: "+user.username);
-    var res = await http.post("https://guarded-cove-87354.herokuapp.com/users/"+user.firebaseId.toString(),
-      headers: <String,String>{
-        'content-type':'application/json; charset=UTF-8'
-      },
-      body: jsonEncode(<String,String>{
-        'name':user.username,
-        'email':user.email,
-      })
-    );
-    if(res.statusCode==200){
-      setState((){
-        submit = false;
-        emailcontroller.clear();
-        usernamecontroller.clear();
-        passwordcontroller.clear();
-        confirmcontroller.clear();
-      });
-      Navigator.of(context).push(home(user,auth));
+  facebook() async {
+    final facebookauth = Facebook();
+    final res = await facebookauth.continueWithFacebook();
+    if(res.code==0){
+      final apiResponse = await API().getUser(res.user.firebaseId);
+      if(apiResponse.code==0){
+        Navigator.of(context).push(home(user,facebookauth.type));
+      }else{
+        final apires = await API().addUser(res.user);
+        if(apires.code==0){
+          Storage storage = Storage();
+          var x = await storage.write(apires.user.firebaseId, facebookauth.type);
+          if(x.code==0){
+            Navigator.of(context).push(home(apires.user,facebookauth.type));
+          }else{
+            print(x.message);
+          }
+        }else{
+          facebookauth.deleteUser();
+          failed();
+        }
+      }
     }else{
-      print("Error registering"+res.body);
-      fauth.currentUser.delete();
-      setState(() {
-        submit = false;
-      });
+      //error dialog
+    }
+  }
+
+  google() async {
+    final googleSignIn = Google();
+    final res = await googleSignIn.continueWithGoogle();
+    if(res.code==0){
+      final apiResponse = await API().getUser(res.user.firebaseId);
+      if(apiResponse.code==0){
+        Navigator.of(context).push(home(user,googleSignIn.type));
+      }else{
+        final apires = await API().addUser(res.user);
+        if(apires.code==0){
+          Storage storage = Storage();
+          var x = await storage.write(apires.user.firebaseId, googleSignIn.type);
+          if(x.code==0){
+            Navigator.of(context).push(home(apires.user,googleSignIn.type));
+          }else{
+            print(x.message);
+          }
+        }else{
+          googleSignIn.deleteUser();
+          failed();
+        }
+      }
+    }else{
+      print(res.code);
     }
   }
 
@@ -206,11 +212,6 @@ class RegisterState extends State<Register> {
                       padding: const EdgeInsets.only(top:10,left:40,right:40),
                       child: TextField(
                         controller: emailcontroller,
-                        onChanged: (value){
-                          setState(() {
-                            email = value;
-                          });
-                        },
                         style: TextStyle(fontSize: 20),
                         decoration: InputDecoration(
                           contentPadding: EdgeInsets.symmetric(vertical:10),
@@ -240,11 +241,6 @@ class RegisterState extends State<Register> {
                       padding: const EdgeInsets.only(top:10,left:40,right:40),
                       child: TextField(
                         controller: usernamecontroller,
-                        onChanged: (value){
-                          setState(() {
-                            username = value;
-                          });
-                        },
                         style: TextStyle(fontSize: 20),
                         decoration: InputDecoration(
                           contentPadding: EdgeInsets.symmetric(vertical:10),
@@ -283,11 +279,6 @@ class RegisterState extends State<Register> {
                       padding: const EdgeInsets.only(top:10,left:40,right:40),
                       child: TextField(
                         controller: passwordcontroller,
-                        onChanged: (value){
-                          setState(() {
-                            password = value;
-                          });
-                        },
                         obscureText: hide,
                         style: TextStyle(fontSize: 20),
                         decoration: InputDecoration(
@@ -326,11 +317,6 @@ class RegisterState extends State<Register> {
                       padding: const EdgeInsets.only(top:10,left:40,right:40),
                       child: TextField(
                         controller: confirmcontroller,
-                        onChanged: (value){
-                          setState(() {
-                            confirmPassword = value;
-                          });
-                        },
                         obscureText: chide,
                         style: TextStyle(fontSize: 20),
                         decoration: InputDecoration(
