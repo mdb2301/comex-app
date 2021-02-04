@@ -3,7 +3,6 @@ import 'package:comex/API.dart';
 import 'package:comex/profile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
-
 import 'Book.dart';
 import 'NewListingPage.dart';
 import 'CustomUser.dart';
@@ -65,6 +64,19 @@ class HomeState extends State<Home>{
       },
     );
   }
+
+  Route scanner(){
+    return PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => QRScanner(user:widget.user),
+      transitionsBuilder: (context, animation, secondaryAnimation, child){
+        return SlideTransition(
+          position: animation.drive(Tween(begin: Offset(1.0,0.0),end: Offset.zero)),
+          child: child,
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context){
     return WillPopScope(
@@ -79,10 +91,12 @@ class HomeState extends State<Home>{
                   Row(
                     children: <Widget>[
                       Padding(
-                        padding: EdgeInsets.all(15),
-                        child: Image.asset('assets/map-pin.png',scale: 3,),
+                        padding: EdgeInsets.all(4),
+                        child: GestureDetector(
+                          onTap: ()=>Navigator.of(context).push(scanner()),
+                          child: Image.asset('assets/qr-text.png',scale:4.2)
+                        ),
                       ),
-                      Text("Amanora Hsg Soc",style:TextStyle(fontSize: 18,color:Color.fromRGBO(69,69,69,1))),
                       Expanded(child: Container(),),
                       Padding(
                         padding: const EdgeInsets.all(18),
@@ -465,6 +479,39 @@ class BookDetailsState extends State<BookDetailsPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class QRScanner extends StatefulWidget {
+  final CustomUser user;
+  QRScanner({this.user});
+  @override
+  _QRScannerState createState() => _QRScannerState();
+}
+
+class _QRScannerState extends State<QRScanner> {
+
+  @override
+  void initState() {
+    scan();
+    super.initState();
+  }
+
+  scan() async {
+    String res = await BarcodeScanner.scan();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Container(
+          child: Center(
+            child: Container()
+          )
+        )
+      )
     );
   }
 }

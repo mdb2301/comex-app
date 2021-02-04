@@ -30,6 +30,8 @@ dependencies:
   shared_preferences: ^0.5.12+4
   encrypt: ^4.1.0
   geolocator: ^6.1.14
+  qr_flutter: ^3.1.0
+  barcode_scan: any
   flutter:
     sdk: flutter
 
