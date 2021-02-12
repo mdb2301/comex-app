@@ -26,13 +26,13 @@ class Email{
     auth.signOut();
   }
 
-  Future<AuthResponse> signupWithEmailAndPassword(String email,String password, String name) async {
+  Future<AuthResponse> signupWithEmailAndPassword(String email,String password) async {
     try{
       FirebaseApp app = await Firebase.initializeApp();
       auth = FirebaseAuth.instanceFor(app: app);
       UserCredential res = await auth.createUserWithEmailAndPassword(email:email,password:password);
       if(res.user != null){
-        return AuthResponse(code:0,user:CustomUser(name:name,email:email,firebaseId:res.user.uid));
+        return AuthResponse(code:0,user:CustomUser(email:email,firebaseId:res.user.uid,updated:true));
       }else{
         return AuthResponse(code:2,message:"Error");
       }
@@ -89,9 +89,9 @@ class Facebook{
 
   Future<AuthResponse> continueWithFacebook() async {
     var res = await facebookLogin.logIn(['email']);
-    var graphResponse = await http.get('https://graph.facebook.com/v2.12/me?fields=name,first_name,last_name,email&access_token=${res.accessToken.token}');
+    var graphResponse = await http.get('https://graph.facebook.com/v2.12/me?fields=name,email&access_token=${res.accessToken.token}');
     var profile = json.decode(graphResponse.body);
-    return AuthResponse(code:0,user:CustomUser(name: profile["name"],email: profile["email"],firebaseId: profile["id"]));
+    return AuthResponse(code:0,user:CustomUser(name: profile["name"],email: profile["email"],firebaseId: profile["id"],updated:false));
   }
 
   deleteUser() async {
@@ -111,7 +111,6 @@ class Google{
   final type = "google";
   Google(){
     signIn = GoogleSignIn();
-    initialize();
   }
 
   initialize() async {
@@ -125,7 +124,7 @@ class Google{
     final User user = (await FirebaseAuth.instanceFor(app:app).signInWithCredential(cred)).user;
     if(user != null){
       print(user.displayName);
-      return AuthResponse(code:0,user:CustomUser(name:user.displayName,email:user.email,firebaseId:user.uid));
+      return AuthResponse(code:0,user:CustomUser(name:user.displayName,email:user.email,firebaseId:user.uid,phone:user.phoneNumber,updated:user.phoneNumber!=null));
     }else{
       return AuthResponse(code:1,message:"Failed");
     }

@@ -1,8 +1,8 @@
 class CustomUser{
-  String name,email,firebaseId,fenceId, dateJoined;
+  String name,email,firebaseId,fenceId, dateJoined,phone;
   int coins,listings,exchanges;
   bool updated;
-  CustomUser({this.name,this.email,this.firebaseId,this.fenceId,this.coins,this.listings,this.exchanges,this.updated,this.dateJoined});
+  CustomUser({this.name,this.email,this.phone,this.firebaseId,this.fenceId,this.coins,this.listings,this.exchanges,this.updated,this.dateJoined});
 
   factory CustomUser.fromJson(Map<String,dynamic> json){
     return CustomUser(
@@ -10,6 +10,7 @@ class CustomUser{
       email: json["email"],
       firebaseId:json["firebase_id"],
       fenceId:json["fence_id"],
+      phone: json["phone"],
       coins:json["coins"],
       listings:json["listings"],
       exchanges:json["exchanges"],

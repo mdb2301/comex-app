@@ -103,6 +103,7 @@ class _MyListingsState extends State<MyListings> {
                       shrinkWrap: true,
                       itemCount: books.length,
                       itemBuilder: (context,index){
+                        print(books[index].id);
                         return GestureDetector(
                           onTap: ()=>Navigator.of(context).push(details(index,books[index])),
                           child: Padding(
@@ -175,7 +176,6 @@ class _MyListingsState extends State<MyListings> {
     if(res.code==0){
       setState(() {
         books = res.book;
-        print(books.length);
       });
     }
   }
@@ -193,18 +193,6 @@ class ListingDetailsState extends State<ListingDetailsPage> {
   @override
   void initState() {
     super.initState();
-  }
-
-  Route qrpage(){
-    return PageRouteBuilder(
-      pageBuilder: (context, animation, secondaryAnimation) => QRPage(book:widget.book,user:widget.user),
-      transitionsBuilder: (context, animation, secondaryAnimation, child){
-        return SlideTransition(
-          position: animation.drive(Tween(begin: Offset(1.0,0.0),end: Offset.zero)),
-          child: child,
-        );
-      },
-    );
   }
 
   @override
@@ -242,46 +230,50 @@ class ListingDetailsState extends State<ListingDetailsPage> {
                             ),
                           ),
                         ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: EdgeInsets.only(left:20),
-                              child: Text(widget.book.title,textAlign: TextAlign.center,style: TextStyle(fontWeight: FontWeight.w700,fontSize: 25)),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.only(top:8,bottom:8,left:20),
-                              child: Text(widget.book.authors??"N/A",style: TextStyle(color: Color.fromRGBO(153, 153, 153, 1),fontWeight: FontWeight.w700)),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.only(bottom:10,left:20),
-                              child: Row(
-                                children: [
-                                  Padding(
-                                    padding: EdgeInsets.only(right:8,top:8,bottom:8),
-                                    child: Image.asset('assets/dollar_2.png',scale: 4.2),
-                                  ),
-                                  Text(widget.book.price.toString(),style: TextStyle(color: Color.fromRGBO(69, 69, 69, 0.69),fontWeight: FontWeight.w700)),
-                                ],
+                        Container(
+                          width:290,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: EdgeInsets.only(left:20),
+                                child: Text(widget.book.title,textAlign: TextAlign.start,style: TextStyle(fontWeight: FontWeight.w700,fontSize: 25)),
                               ),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.only(left:20),
-                              child: RichText(
-                                text: TextSpan(
+                              Padding(
+                                padding: EdgeInsets.only(top:8,bottom:8,left:20),
+                                child: Text(widget.book.authors??"N/A",style: TextStyle(color: Color.fromRGBO(153, 153, 153, 1),fontWeight: FontWeight.w700)),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.only(bottom:10,left:20),
+                                child: Row(
                                   children: [
-                                    TextSpan(text:"Listed On: ",style:TextStyle(color:Color.fromRGBO(69,69,69,0.96),fontSize:12,fontWeight:FontWeight.bold)),
-                                    TextSpan(text:widget.book.uploadedOn,style:TextStyle(color:Color.fromRGBO(69,69,69,0.69),fontSize:12))
-                                  ]
+                                    Padding(
+                                      padding: EdgeInsets.only(right:8,top:8,bottom:8),
+                                      child: Image.asset('assets/dollar_2.png',scale: 4.2),
+                                    ),
+                                    Text(widget.book.price.toString(),style: TextStyle(color: Color.fromRGBO(69, 69, 69, 0.69),fontWeight: FontWeight.w700)),
+                                  ],
+                                ),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.only(left:20),
+                                child: RichText(
+                                  text: TextSpan(
+                                    children: [
+                                      TextSpan(text:"Listed On: ",style:TextStyle(color:Color.fromRGBO(69,69,69,0.96),fontSize:12,fontWeight:FontWeight.bold)),
+                                      TextSpan(text:widget.book.uploadedOn,style:TextStyle(color:Color.fromRGBO(69,69,69,0.69),fontSize:12))
+                                    ]
+                                  )
                                 )
                               )
-                            )
-                          ],
+                            ],
+                          ),
                         )
                       ],
                     ),
                   ),
-                  Container(        // Size of the container adjusted according to screen
+                  Container(        
+                    width:MediaQuery.of(context).size.width,
                     decoration: BoxDecoration(
                         borderRadius: BorderRadius.only(
                           topRight:Radius.circular(40),
@@ -289,156 +281,30 @@ class ListingDetailsState extends State<ListingDetailsPage> {
                           ),
                           color: Color.fromRGBO(255, 255, 255, 1),
                         ),
-                      child: Padding(
-                        padding: const EdgeInsets.only(top:40,left:30,right:30),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(top:15,bottom:8),
-                              child: Container(
-                                alignment: Alignment.centerLeft,
-                                child: Text('About',
-                                style: TextStyle(color: Color.fromRGBO(0, 0, 0, 1), fontSize: 20,
-                                fontWeight: FontWeight.w700),
-                                ),
-                              ),
-                            ),
-                            Container(
-                              margin: EdgeInsets.only(bottom: 90),
-                              child: Text(
-                                widget.book.description??"N/A",
-                                style: TextStyle(color: Color.fromRGBO(0, 0, 0, 1)),
-                                textAlign: TextAlign.justify,
-                                ),
-                            ),
-                          ],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          margin: EdgeInsets.only(top:60),
+                          width:300,height:300,
+                          child: QrImage(
+                            data: widget.book.id + "_" + widget.book.price.toString(),
+                            version:4
+                          ),
                         ),
-                      ),
-                    ),  
+                        Padding(
+                          padding: EdgeInsets.only(top:50,bottom:120),
+                          child: Text("Scan my code to exchange",style:TextStyle(color:Colors.black45,fontSize:17)),
+                        ),
+                      ],
+                    ),
+                  ),  
                 ],
               ),
             ),
-            Positioned(
-              bottom:10,
-              width:MediaQuery.of(context).size.width,
-              child: GestureDetector(
-                onTap: ()=>Navigator.of(context).push(qrpage()),
-                child: Center(
-                  child: Container(
-                    width:250,
-                    alignment:Alignment.center,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(30),
-                      gradient: LinearGradient(
-                        colors: [Color.fromRGBO(3, 163, 99, 1),Color.fromRGBO(8, 199, 68, 1)],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight
-                      )
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.only(top:8,bottom:8,left:25,right:25),
-                      child: Text('Exchange',style:TextStyle(color:Colors.white,fontSize: 18,fontWeight: FontWeight.w800))
-                    ),
-                  ),
-                ),
-              )
-            )
           ],
         ),
       ),
-    );
-  }
-}
-
-class QRPage extends StatefulWidget {
-  final BookAPIQuery book;
-  final CustomUser user;
-  QRPage({this.book,this.user});
-  @override
-  _QRPageState createState() => _QRPageState();
-}
-
-class _QRPageState extends State<QRPage> {
-  bool down;
-  @override
-  void initState() {
-    down = false;
-    super.initState();
-  }
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Padding(
-                padding: EdgeInsets.only(top:90),
-                child: Container(
-                  width: 300,height:300,
-                  child: QrImage(
-                    version: 3,
-                    data: widget.book.title + "_" + widget.book.uploadedBy + "_" + widget.book.price.toString()
-                  ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    Text(widget.book.title,style:TextStyle(fontSize: 25)),
-                    Text(widget.book.authors),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Padding(
-                          padding: EdgeInsets.all(8),
-                          child: Image.asset('assets/dollar_2.png',scale: 4.2),
-                        ),
-                        Text(widget.book.price.toString()),
-                      ],
-                    ),
-                  ],
-                )
-              ),
-              Padding(
-                padding: EdgeInsets.symmetric(vertical: 30),
-                child: Text("Scan my code to exchange",style:TextStyle(color:Colors.black45,fontSize:17)),
-              ),
-              Padding(
-                padding: EdgeInsets.symmetric(vertical:50),
-                child: GestureDetector(
-                  onTapDown: (details) {
-                    setState(() {
-                      down = true;
-                    });
-                  },
-                  onTapUp: (details) {
-                    setState(() {
-                      down = false;
-                    });
-                  },
-                  onTap: ()=>Navigator.of(context).pop(),
-                  child: Container(
-                    height: 50,width:100,
-                    alignment:Alignment.center,
-                    decoration: BoxDecoration(
-                      color: down ? Color.fromRGBO(3,163,99,1) : Colors.white,
-                      borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color:Color.fromRGBO(3,163,99,1))
-                    ),
-                    child: Center(
-                      child: Text("Done",style:TextStyle(color:down ? Colors.white : Color.fromRGBO(3,163,99,1)))
-                    )
-                  ),
-                )
-              ),
-            ],
-          ),
-        ),
-      )
     );
   }
 }

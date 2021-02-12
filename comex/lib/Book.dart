@@ -1,9 +1,9 @@
 class BookAPIQuery{
-  final String title,description,infoLink,image,authors; 
+  final String title,description,infoLink,image,authors,id; 
   final int pages;final dynamic rating;
-  String etag,uploadedOn,uploadedBy;
+  String etag,uploadedOn,uploadedBy,uploadedPhone;
   bool taken;int price;
-  BookAPIQuery({this.title,this.description,this.image,this.infoLink,this.pages,this.rating,this.authors,this.price,this.uploadedOn,this.etag,this.taken,this.uploadedBy});
+  BookAPIQuery({this.id,this.title,this.description,this.image,this.infoLink,this.pages,this.rating,this.authors,this.price,this.uploadedOn,this.etag,this.taken,this.uploadedBy,this.uploadedPhone});
 
   factory BookAPIQuery.fromJson(Map<String, dynamic> map){
     final jsonList = (map['items'] as List);

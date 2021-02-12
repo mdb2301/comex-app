@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:comex/API.dart';
 import 'package:comex/Authentication.dart';
 import 'package:comex/CustomUser.dart';
 import 'package:comex/MyExchanges.dart';
@@ -18,9 +21,20 @@ class ProfileState extends State<ProfilePage> {
   @override
   void initState() {
     user = widget.user;
-    auth = widget.auth;   
+    auth = widget.auth;
+    getUser();
     super.initState();
   }
+
+  getUser() async {
+    APIResponse res = await API().getUser(user.firebaseId);
+    if(res.code==0){
+      setState(() {
+        user = res.user;
+      });
+    }
+  }
+
   Route listings(){
     return PageRouteBuilder(
       pageBuilder: (context, animation, secondaryAnimation) => MyListings(user:user),
@@ -81,7 +95,7 @@ class ProfileState extends State<ProfilePage> {
                         child: CircleAvatar(
                           radius: 40,
                           backgroundColor: Color.fromRGBO(8, 199, 68, 1),
-                          child: Text(user.name[0]+user.name[1],style: TextStyle(color: Colors.white,fontSize: 30),),
+                          child: user.name == null || user.name.length==0? Text("NA",style: TextStyle(color: Colors.white,fontSize: 30),) : Text(user.name[0]+user.name[1],style: TextStyle(color: Colors.white,fontSize: 30),),
                         ),
                       ),
                     ),
@@ -132,6 +146,10 @@ class ProfileState extends State<ProfilePage> {
                     SizedBox(height:30),
                     Option(icon: Icon(Icons.list),text: "My Listings",ontap:()=>Navigator.of(context).push(listings())),
                     Option(icon: Image.asset('assets/trans.png',scale: 2.5,),text: "My Exchanges",ontap:()=>Navigator.of(context).push(exchanges())),
+                    Visibility(
+                      visible: !user.updated,
+                      child:Option(icon: Image.asset('assets/add_phone.png',scale: 8,),text: "Add Phone Number",ontap:()=>Navigator.of(context).push(settings())),
+                    ),
                     Padding(
                       padding: EdgeInsets.only(top:60,bottom:30),
                       child: Center(
@@ -155,7 +173,19 @@ class ProfileState extends State<ProfilePage> {
         )
       )
     );
-  }  
+  }
+
+  Route settings(){
+    return PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => PhoneUpdate(firebaseId: user.firebaseId),
+      transitionsBuilder: (context, animation, secondaryAnimation, child){
+        return SlideTransition(
+          position: animation.drive(Tween(begin:Offset(-1,0),end:Offset.zero)),
+          child: child,
+        );
+      },
+    );
+  }
 
   Route login(){
     return PageRouteBuilder(
@@ -218,5 +248,228 @@ class Option extends StatelessWidget {
         )
       ),
     );
+  }
+}
+
+class PhoneUpdate extends StatefulWidget {
+  final firebaseId;
+  PhoneUpdate({this.firebaseId});
+  @override
+  _PhoneUpdateState createState() => _PhoneUpdateState();
+}
+
+class _PhoneUpdateState extends State<PhoneUpdate> {
+  TextEditingController phonecontroller;bool error,loading;
+  @override
+  void initState() {
+    error = false;
+    loading = false;
+    phonecontroller = TextEditingController(text:"+91");
+    super.initState();
+  }
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Scaffold(
+        body: Container(
+          child: Center(
+            child: Stack(
+              children: [
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                        alignment: Alignment.topLeft,
+                        child:Padding(
+                          padding: const EdgeInsets.only(top:30,left:50),
+                          child: Text("Update Phone Number",style:TextStyle(fontSize: 30,color:Color.fromRGBO(69, 69, 69, 1))),
+                        )
+                    ),
+                    SizedBox(height:100),
+                    Container(
+                        alignment: Alignment.centerLeft,
+                        child:Padding(
+                          padding: const EdgeInsets.only(top:10,left:60,right:40),
+                          child: Text("Phone No.",style:TextStyle(fontSize: 18,color:Color.fromRGBO(82,93,92,1))),
+                        )
+                    ),
+                    Container(
+                        alignment: Alignment.center,
+                        child:Padding(
+                          padding: const EdgeInsets.only(top:25,left:40,right:40),
+                          child: TextField(
+                            onEditingComplete: ()=>FocusScope.of(context).nextFocus(),
+                            controller: phonecontroller,
+                            keyboardType: TextInputType.phone,
+                            style: TextStyle(fontSize: 20),
+                            decoration: InputDecoration(
+                              contentPadding: EdgeInsets.symmetric(vertical:10),
+                              filled: true,
+                              fillColor: Color.fromRGBO(246, 246, 246, 1),
+                              prefixIcon: Icon(Icons.phone),
+                              border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(30)
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(30)
+                              ),
+                            ),
+                          ),
+                        )
+                    ),
+                    Visibility(
+                      visible: error,
+                      child: Padding(
+                        padding: EdgeInsets.only(top:20),
+                        child: Text("Invalid phone number",style:TextStyle(color:Colors.red))
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top:50),
+                      child: Container(
+                          width: 200,
+                          decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(30),
+                              gradient: LinearGradient(
+                                  colors: [Color.fromRGBO(3, 163, 99, 1),Color.fromRGBO(8, 199, 68, 1)],
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight
+                              )
+                          ),
+                          alignment: Alignment.center,
+                          child: MaterialButton(
+                            onPressed: update,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: <Widget>[
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Text("Update",style:TextStyle(color:Colors.white,fontSize: 18)),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(left:10),
+                                  child: Icon(Icons.done,color:Colors.white),
+                                )
+                              ],
+                            ),
+                          )
+                      ),
+                    ),
+                  ],
+                ),
+                loading ?
+                Container(
+                  width: MediaQuery.of(context).size.width,
+                  height: MediaQuery.of(context).size.height,
+                  color: Colors.black26,
+                  child: Center(
+                    child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color.fromRGBO(3, 163, 99, 1))),
+                  ),
+                ):
+                Positioned(
+                    bottom: 0,
+                    height: 0,
+                    width: 0,
+                    child: Container()
+                )
+              ],
+            )
+          )
+        ),
+      ),
+    );
+  }
+
+  update() async {
+    setState(() {
+      loading=true;
+    });
+    if(phonecontroller.value.text.trim() != "" && phonecontroller.value.text.trim()!="+91"){
+      print(phonecontroller.value.text);
+      print(widget.firebaseId);
+      APIResponse res = await API().updatePhone(widget.firebaseId,phonecontroller.value.text.trim());
+      switch(res.code){
+        case 70:
+          Timer(Duration(seconds: 2),(){
+            Navigator.of(context).pop();
+            Navigator.of(context).pop();
+            Navigator.of(context).pop();
+          });
+          showDialog(
+            context: context,
+            builder: (context){
+              return Dialog(
+                backgroundColor: Colors.white,
+                child: Container(
+                  width: 200,height:150,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text("Phone Number Updated!"),
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 10),
+                        child: Container(
+                            width:30,height:30,
+                            decoration: BoxDecoration(
+                                color: Color.fromRGBO(8, 199, 68, 1),
+                                borderRadius: BorderRadius.circular(15)
+                            ),
+                            child: Center(child: Icon(Icons.check,color:Colors.white))
+                        ),
+                      )
+                    ],
+                  )
+                ),
+              );
+            }
+          );
+          break;
+        case 12:
+          print(res.message);
+          setState(() {
+            error = true;
+          });
+          break;
+        default:
+          print(res.message);
+          Timer(Duration(seconds: 4),(){
+            Navigator.of(context).pop();
+          });
+          showDialog(
+            context: context,
+            builder: (context){
+              return Dialog(
+                backgroundColor: Colors.white,
+                child: Container(
+                  width: 200,height:150,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text("Failed to update"),
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 10),
+                        child: Container(
+                            width:30,height:30,
+                            decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(15)
+                            ),
+                            child: Center(child: Icon(Icons.check,color:Colors.white))
+                        ),
+                      )
+                    ],
+                  )
+                ),
+              );
+          }
+        );
+      }
+    }else{
+      setState(() {
+        error = true;
+      });
+    }
   }
 }

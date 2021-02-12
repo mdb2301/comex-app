@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'package:barcode_scan/barcode_scan.dart';
 import 'package:comex/API.dart';
 import 'package:comex/profile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_launch/flutter_launch.dart';
 import 'Book.dart';
 import 'NewListingPage.dart';
 import 'CustomUser.dart';
@@ -15,19 +17,23 @@ class Home extends StatefulWidget{
 }
 
 class HomeState extends State<Home>{
-  bool loading;
-  List<BookAPIQuery> books;
+  CustomUser user;
   @override
   void initState(){
-    while(widget.user==null){}
+    user = widget.user;
+    getUser();
     getBooks();
-    Timer(Duration(seconds:10),(){
-      setState(() {
-        loading = false;
-      });
-    });
-    loading = true;
     super.initState();
+  }
+
+  getUser() async {
+    APIResponse res = await API().getUser(user.firebaseId);
+    if(res.code==11){
+      setState(() {
+        user = res.user;
+      });
+      print(user.fenceId);
+    }
   }
 
   Route details(BookAPIQuery book,int index){
@@ -75,6 +81,11 @@ class HomeState extends State<Home>{
         );
       },
     );
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   @override
@@ -137,106 +148,22 @@ class HomeState extends State<Home>{
                       ),
                       child: Padding(
                         padding: EdgeInsets.only(top:20,left:10,right:10),
-                        child: loading ?
-                        Center(child: Container(width:50,height:50,child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color.fromRGBO(3, 163, 99, 1)),)))                  
-                        :books.length==0?
-                        Container(
-                          width:MediaQuery.of(context).size.width,
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Padding(
-                                  padding: EdgeInsets.symmetric(vertical:20),
-                                  child: Text("No result"),
-                                ),
-                                GestureDetector(
-                                  onTap: refresh,
-                                  child: Container(
-                                    width:40,height:40,
-                                    decoration: BoxDecoration(
-                                      color: Color.fromRGBO(245,245,245,1),
-                                      borderRadius: BorderRadius.circular(20)
-                                    ),
-                                    child: Icon(Icons.refresh)
-                                  )
-                                )
-                              ],
-                            )
-                          ),
-                        ):
-                        RefreshIndicator(
+                        child: RefreshIndicator(
                           onRefresh: refresh,
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: books.length,
-                            itemBuilder: (context,index){
-                              return Padding(
-                                padding: EdgeInsets.only(bottom: 15),
-                                child: GestureDetector(
-                                  onTap: ()=>Navigator.of(context).push(details(books[index],index)),
-                                  child: Row(
-                                    children: <Widget>[
-                                      Padding(
-                                        padding: EdgeInsets.only(top:8,bottom:8,left:14),
-                                        child: Hero(
-                                          tag: index.toString(),
-                                          child: Container(
-                                            width: 80,height:100,
-                                            child: Image.network(books[index].image,scale:1.8)
-                                          ),
-                                        ),
-                                      ),
-                                      Padding(
-                                        padding: EdgeInsets.only(top:8,bottom:8,left:33),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: <Widget>[
-                                            Container(width:200,child: Text(books[index].title,style:TextStyle(fontSize: 16))),
-                                            Container(width:200,child: Text(books[index].authors,style:TextStyle(color: Color.fromRGBO(69,69,69,0.5)))),
-                                            Padding(
-                                              padding: EdgeInsets.only(top:20),
-                                              child: Container(width:180,child: Text("Listed by:",style:TextStyle(color: Color.fromRGBO(69,69,69,0.9)))),
-                                            ),
-                                            Row(
-                                              children: <Widget>[
-                                                Padding(
-                                                  padding: EdgeInsets.only(top:8,bottom:8),
-                                                  child: Container(
-                                                    width:24,height:24,
-                                                    decoration: BoxDecoration(
-                                                      color: Color.fromRGBO(8, 199, 68, 1),
-                                                      borderRadius: BorderRadius.circular(25)
-                                                    ),
-                                                    alignment: Alignment.topLeft,
-                                                    child: Center(child: Image.asset('assets/random_guy 3.png',width: 22,height: 20,)),
-                                                  ),
-                                                ),
-                                                Padding(
-                                                  padding: EdgeInsets.only(top:8,left:8,bottom:8),
-                                                  child: Text(books[index].uploadedBy,style: TextStyle(color: Color.fromRGBO(69,69,69,0.95)),)
-                                                )
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Padding(
-                                        padding: EdgeInsets.only(left:10),
-                                        child: Column(
-                                          children: <Widget>[
-                                            Image.asset("assets/dollar_2.png",scale:2.5),
-                                            Text(books[index].price.toString(),style: TextStyle(fontSize: 20),),
-                                            Text("COINS")
-                                          ],
-                                        )
-                                      )
-                                    ],
-                                  ),
-                                ),
-                              );
+                          child: FutureBuilder(
+                            future: getBooks(),
+                            builder: (context,snapshot){
+                              if(snapshot.connectionState==ConnectionState.done){
+                                if(snapshot.hasData){
+                                  return getListView(snapshot.data);
+                                }else{
+                                  return getEmpty();
+                                }
+                              }else{
+                                return Center(child: Container(width:50,height:50,child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color.fromRGBO(3, 163, 99, 1)),)));
+                              }
                             },
-                          ),
+                          )
                         ),
                       ),
                     ),
@@ -281,49 +208,139 @@ class HomeState extends State<Home>{
     );
   }
 
-  Future<void>refresh() async{
-    print("refresh");
-    Timer(Duration(seconds:10),(){
-      setState(() {
-        loading = false;
-      });
-    });
-    setState(() {
-      loading = true;
-    });
-    await getBooks();
+  getEmpty(){
+    return Container(
+      width:MediaQuery.of(context).size.width,
+      child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Padding(
+                padding: EdgeInsets.symmetric(vertical:20),
+                child: Text("No result"),
+              ),
+              GestureDetector(
+                  onTap: refresh,
+                  child: Container(
+                      width:40,height:40,
+                      decoration: BoxDecoration(
+                          color: Color.fromRGBO(245,245,245,1),
+                          borderRadius: BorderRadius.circular(20)
+                      ),
+                      child: Icon(Icons.refresh)
+                  )
+              )
+            ],
+          )
+      ),
+    );
   }
 
-  getBooks() {
-    print("Fence id: ${widget.user.fenceId}");
-    API().getBooksInFence(widget.user.fenceId).then((res){
-      if(res.code==0){
-        setState(() {
-          books = res.book;
-        });
-      }
-    });    
+  getListView(data){
+    return ListView.builder(
+      shrinkWrap: true,
+      itemCount: data.length,
+      itemBuilder: (context,index){
+        return Padding(
+          padding: EdgeInsets.only(bottom: 15),
+          child: GestureDetector(
+            onTap: ()=>Navigator.of(context).push(details(data[index],index)),
+            child: Row(
+              children: <Widget>[
+                Padding(
+                  padding: EdgeInsets.only(top:8,bottom:8,left:14),
+                  child: Hero(
+                    tag: index.toString(),
+                    child: Container(
+                        width: 80,height:100,
+                        child: Image.network(data[index].image,scale:1.8)
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.only(top:8,bottom:8,left:30),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Container(width:200,child: Text(data[index].title,style:TextStyle(fontSize: 16))),
+                      Container(width:200,child: Text(data[index].authors,style:TextStyle(color: Color.fromRGBO(69,69,69,0.5)))),
+                      Padding(
+                        padding: EdgeInsets.only(top:20),
+                        child: Container(width:180,child: Text("Listed by:",style:TextStyle(color: Color.fromRGBO(69,69,69,0.9)))),
+                      ),
+                      Row(
+                        children: <Widget>[
+                          Padding(
+                            padding: EdgeInsets.only(top:8,bottom:8),
+                            child: Container(
+                              width:24,height:24,
+                              decoration: BoxDecoration(
+                                  color: Color.fromRGBO(8, 199, 68, 1),
+                                  borderRadius: BorderRadius.circular(25)
+                              ),
+                              alignment: Alignment.topLeft,
+                              child: Center(child: Image.asset('assets/random_guy 3.png',width: 22,height: 20,)),
+                            ),
+                          ),
+                          Padding(
+                              padding: EdgeInsets.only(top:8,left:8,bottom:8),
+                              child: Text(data[index].uploadedBy,style: TextStyle(color: Color.fromRGBO(69,69,69,0.95)),)
+                          )
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                    padding: EdgeInsets.only(left:10),
+                    child: Column(
+                      children: <Widget>[
+                        Image.asset("assets/dollar_2.png",scale:2.5),
+                        Text(data[index].price.toString(),style: TextStyle(fontSize: 20),),
+                        Text("COINS")
+                      ],
+                    )
+                )
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void>refresh() async{
+    print("refresh");
+    setState(() { });
+    getBooks();
+  }
+
+  Future<List<BookAPIQuery>> getBooks() async {
+    APIResponse res = await API().getBooksInFence(widget.user.firebaseId,widget.user.fenceId);
+    if(res.code==0){
+      return res.book;
+    }
+    return null;
   }
 }
 
 class BookDetailsPage extends StatefulWidget {
-  final BookAPIQuery book;final CustomUser user;
+  final BookAPIQuery book;final CustomUser user,uploadedBy;
   final int index;
-  BookDetailsPage({this.index,this.book,this.user});
+  BookDetailsPage({this.index,this.book,this.user,this.uploadedBy});
   @override
   BookDetailsState createState() => BookDetailsState();
 }
 
 class BookDetailsState extends State<BookDetailsPage> {
   BookAPIQuery book;
-  CustomUser currentUser;
   @override
   void initState() {
     book = widget.book;
-    currentUser = widget.user;
     print("Title: "+book.title);
     super.initState();
   }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -441,37 +458,40 @@ class BookDetailsState extends State<BookDetailsPage> {
             Positioned(
               bottom:10,
               left:10,right:10,
-              child: Container(
-                alignment:Alignment.center,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  gradient: LinearGradient(
-                    colors: [Color.fromRGBO(3, 163, 99, 1),Color.fromRGBO(8, 199, 68, 1)],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight
-                  )
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.only(top:8,bottom:8,left:50,right:50),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Exchange',style:TextStyle(color:Colors.white,fontSize: 18,fontWeight: FontWeight.w800)),
-                      Row(
-                        children: [
-                          Column(
-                            children: [
-                              Text(book.price.toString(),style:TextStyle(color:Colors.white,fontSize: 17,fontWeight: FontWeight.w800)),
-                              Text('COINS',style:TextStyle(color:Colors.white,fontSize: 10,fontWeight: FontWeight.w800)),
-                            ],
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(left:8),
-                            child: Image.asset('assets/dollar_2.png',scale: 3,),
-                          )
-                        ],
-                      ),
-                    ],
+              child: GestureDetector(
+                onTap: openWhatsapp,
+                child: Container(
+                  alignment:Alignment.center,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(30),
+                    gradient: LinearGradient(
+                      colors: [Color.fromRGBO(3, 163, 99, 1),Color.fromRGBO(8, 199, 68, 1)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight
+                    )
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top:8,bottom:8,left:50,right:50),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Exchange',style:TextStyle(color:Colors.white,fontSize: 18,fontWeight: FontWeight.w800)),
+                        Row(
+                          children: [
+                            Column(
+                              children: [
+                                Text(book.price.toString(),style:TextStyle(color:Colors.white,fontSize: 17,fontWeight: FontWeight.w800)),
+                                Text('COINS',style:TextStyle(color:Colors.white,fontSize: 10,fontWeight: FontWeight.w800)),
+                              ],
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(left:8),
+                              child: Image.asset('assets/dollar_2.png',scale: 3,),
+                            )
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               )
@@ -480,6 +500,16 @@ class BookDetailsState extends State<BookDetailsPage> {
         ),
       ),
     );
+  }
+
+  openWhatsapp() async {
+    bool whatsapp = await FlutterLaunch.hasApp(name:"whatsapp");
+    if(whatsapp){
+      await FlutterLaunch.launchWathsApp(
+        phone:book.uploadedPhone,
+        message:"Hi there! I checked your listing for '${book.title}' on ComEx app. I want to exchange it for ${book.price}. Let's connect?"
+      );
+    }
   }
 }
 
@@ -491,15 +521,43 @@ class QRScanner extends StatefulWidget {
 }
 
 class _QRScannerState extends State<QRScanner> {
-
+  bool success,loading,down;
   @override
   void initState() {
+    loading = true;
+    down = false;
     scan();
     super.initState();
   }
 
   scan() async {
-    String res = await BarcodeScanner.scan();
+    ScanResult res = await BarcodeScanner.scan(
+      options: ScanOptions(
+        restrictFormat: [BarcodeFormat.qr]
+      )
+    );
+    var strings = res.rawContent.split("_");
+    print("\n\nID:${strings[0]}");
+    print("\n\nPrice:${strings[1]}");
+    APIResponse r = await API().exchange(widget.user.firebaseId,strings[0]);
+    if(r.code==0){
+      print(r.message);
+      setState(() {
+        success = true;
+        loading = false;
+      });
+    }else{
+      print(r.message);
+      setState(() {
+        success = false;
+        loading = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   @override
@@ -507,10 +565,116 @@ class _QRScannerState extends State<QRScanner> {
     return Scaffold(
       body: SafeArea(
         child: Container(
-          child: Center(
-            child: Container()
-          )
-        )
+            child: Center(
+                child: loading ?
+                Center(child: Container(width:50,height:50,child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color.fromRGBO(3, 163, 99, 1)),)))
+                    : success ?
+                Container(
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.only(top:0.3*MediaQuery.of(context).size.height),
+                          child: Text("Exchange Successful!",style:TextStyle(fontSize:20)),
+                        ),
+                        Padding(
+                            padding: EdgeInsets.only(top:50),
+                            child:Container(
+                                width:40,height:40,
+                                decoration: BoxDecoration(
+                                    color:Colors.green,
+                                    borderRadius: BorderRadius.circular(20)
+                                ),
+                                child: Center(child:Icon(Icons.done,size:30,color:Colors.white))
+                            )
+                        ),
+                        Padding(
+                            padding: EdgeInsets.only(top:100),
+                            child:Text("Happy Reading!",style:TextStyle(color:Color.fromRGBO(69,69,69,0.69)))
+                        ),
+                        Padding(
+                            padding: EdgeInsets.only(top:0.2*MediaQuery.of(context).size.height),
+                            child: GestureDetector(
+                                onTapDown: (details){
+                                  setState(() {
+                                    down = true;
+                                  });
+                                },
+                                onTapUp: (details){
+                                  setState(() {
+                                    down = false;
+                                  });
+                                },
+                                onTap:()=>Navigator.of(context).pop(),
+                                child: Container(
+                                    height:55,width:140,
+                                    decoration: BoxDecoration(
+                                        border: Border.all(color:Color.fromRGBO(8, 199, 68, 1)),
+                                        borderRadius: BorderRadius.circular(70),
+                                        color: down ? Color.fromRGBO(8, 199, 68, 1) : Colors.white
+                                    ),
+                                    child: Center(
+                                        child: Text("Back to Home",style:TextStyle(color:!down ? Color.fromRGBO(8, 199, 68, 1) : Colors.white))
+                                    )
+                                )
+                            )
+                        )
+                      ],
+                    )
+                )
+                    :Container(
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.only(top:0.3*MediaQuery.of(context).size.height),
+                          child: Text("Exchange Failed!",style:TextStyle(fontSize:20)),
+                        ),
+                        Padding(
+                            padding: EdgeInsets.only(top:50),
+                            child:Container(
+                                width:40,height:40,
+                                decoration: BoxDecoration(
+                                    color:Colors.red,
+                                    borderRadius: BorderRadius.circular(20)
+                                ),
+                                child: Center(child:Icon(Icons.close,size:30,color:Colors.white))
+                            )
+                        ),
+                        Padding(
+                            padding: EdgeInsets.only(top:150),
+                            child:Text("Please try again or contact us.",style:TextStyle(color:Color.fromRGBO(69,69,69,0.69)))
+                        ),
+                        Padding(
+                            padding: EdgeInsets.only(top:0.2*MediaQuery.of(context).size.height),
+                            child: GestureDetector(
+                                onTapDown: (details){
+                                  setState(() {
+                                    down = true;
+                                  });
+                                },
+                                onTapUp: (details){
+                                  setState(() {
+                                    down = false;
+                                  });
+                                },
+                                onTap:()=>Navigator.of(context).pop(),
+                                child: Container(
+                                    height:55,width:140,
+                                    decoration: BoxDecoration(
+                                        border: Border.all(color:Colors.red),
+                                        borderRadius: BorderRadius.circular(70),
+                                        color: down ? Colors.red : Colors.white
+                                    ),
+                                    child: Center(
+                                        child: Text("Back to Home",style:TextStyle(color:!down ? Colors.red : Colors.white))
+                                    )
+                                )
+                            )
+                        )
+                      ],
+                    )
+                )
+            )
+        ),
       )
     );
   }

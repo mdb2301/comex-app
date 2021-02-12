@@ -91,33 +91,37 @@ class NewListing extends State<NewListingPage>{
                         ),
                         Padding(
                           padding: EdgeInsets.symmetric(vertical:8,horizontal:12),
-                          child: GridView.builder(
+                          child: ListView.builder(
                             physics: NeverScrollableScrollPhysics(),
                             shrinkWrap: true,
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount:2,childAspectRatio:0.8),
                             itemCount: bookdata.length, 
                             itemBuilder: (context,i){
                               return GestureDetector(
                                 onTap: ()=>details(i),
                                 child: Container(
                                   decoration: BoxDecoration(
-                                    border: getBorder(i,bookdata.length)
+                                    border: i==0 ? Border() : Border(top:BorderSide(color:Colors.black38))
                                   ),
-                                  child: Column(
+                                  child: Row(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Padding(
                                         padding: EdgeInsets.all(10),
                                         child: Container(height:130,child: Center(child: Image.network(bookdata[i].image,scale:1.6))),
                                       ),
-                                      Padding(
-                                        padding: EdgeInsets.only(top:15,left:15,right:15),
-                                        child: Text(bookdata[i].title,style:TextStyle(fontSize: 16)),
-                                      ),
-                                      Padding(
-                                        padding: EdgeInsets.only(bottom:15,left:15,right:15),
-                                        child: Text(bookdata[i].authors,style:TextStyle(color: Color.fromRGBO(69,69,69,0.5))),
-                                      ),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Padding(
+                                            padding: EdgeInsets.only(top:15,left:15,right:15),
+                                            child: Container(width:200,child: Text(bookdata[i].title,style:TextStyle(fontSize: 16))),
+                                          ),
+                                          Padding(
+                                            padding: EdgeInsets.only(bottom:15,left:15,right:15),
+                                            child: Container(width:200,child: Text(bookdata[i].authors,style:TextStyle(color: Color.fromRGBO(69,69,69,0.5)))),
+                                          ),
+                                        ],
+                                      )
                                     ],
                                   ),
                                 ),
@@ -420,6 +424,7 @@ class _BookResultState extends State<BookResult> {
       inProgress = true;
     });
     API().addBook(widget.user,bookdata,price).then((res){
+      print(res.code);
       if(res.code==0){
         done();
       }else{

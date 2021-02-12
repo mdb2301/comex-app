@@ -29,9 +29,11 @@ dependencies:
   url_launcher: any
   shared_preferences: ^0.5.12+4
   encrypt: ^4.1.0
-  geolocator: ^6.1.14
+  location: ^3.2.4
   qr_flutter: ^3.1.0
   barcode_scan: any
+  flutter_launch: ^0.2.0
+  webview_flutter: ^1.0.7
   flutter:
     sdk: flutter
 

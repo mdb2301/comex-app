@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 import 'package:comex/API.dart';
 import 'package:comex/Authentication.dart';
 import 'package:comex/CustomUser.dart';
 import 'package:comex/Storage.dart';
 import 'package:flutter/material.dart';
 import 'package:comex/main.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import 'home.dart';
 class Register extends StatefulWidget {
   @override
@@ -12,7 +15,7 @@ class Register extends StatefulWidget {
 
 class RegisterState extends State<Register> {
   bool dontMatch,alreadyUsed,hide,chide,submit;CustomUser user;
-  TextEditingController emailcontroller,usernamecontroller,passwordcontroller,confirmcontroller;
+  TextEditingController emailcontroller,usernamecontroller,passwordcontroller,confirmcontroller,phonecontroller;
   @override
   void initState(){
     dontMatch = false;
@@ -24,6 +27,7 @@ class RegisterState extends State<Register> {
     usernamecontroller = TextEditingController();
     passwordcontroller = TextEditingController();
     confirmcontroller = TextEditingController();
+    phonecontroller = TextEditingController(text:"+91");
     super.initState();
   }
 
@@ -51,6 +55,18 @@ class RegisterState extends State<Register> {
     );
   }
 
+  Route createfence(CustomUser user, dynamic auth){
+    return PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => CreateFence(user:user,auth:auth),
+      transitionsBuilder: (context, animation, secondaryAnimation, child){
+        return SlideTransition(
+          position: animation.drive(Tween(begin:Offset(-1,0),end:Offset.zero)),
+          child: child,
+        );
+      },
+    );
+  }
+
   signin() async {
     setState(() {
       submit = true;
@@ -59,18 +75,10 @@ class RegisterState extends State<Register> {
     final email = emailcontroller.value.text.trim();
     final password = passwordcontroller.value.text.trim();
     final confirm = confirmcontroller.value.text.trim();
-    final name = usernamecontroller.value.text.trim();
     if(password==confirm){
-      AuthResponse res = await auth.signupWithEmailAndPassword(email, password, name);
+      AuthResponse res = await auth.signupWithEmailAndPassword(email, password);
       if(res.code==0){
-        APIResponse r = await API().addUser(res.user);
-        if(r.code==0){
-          Navigator.of(context).push(home(r.user,auth.type));
-        }else{
-          print("Error registering"+res.message);
-          auth.deleteUser();
-          failed();
-        }
+        uploadUser(res.user,auth);
       }
       if(res.code==2){
         setState(() {
@@ -83,6 +91,41 @@ class RegisterState extends State<Register> {
         dontMatch = true;
         submit = false;
       });
+    }
+  }
+
+  uploadUser(CustomUser user,dynamic auth) async {
+    APIResponse x = await API().checkFence();
+    if(auth.type=="email"){
+      user.name = usernamecontroller.value.text.trim();
+      user.phone = phonecontroller.value.text.trim();
+    }
+    print("\n\n${x.code}\n\n");
+    switch(x.code){
+      case 0:
+        user.fenceId = x.fenceId;
+        APIResponse r = await API().addUser(user);
+        if(r.code==0){
+          Storage storage = Storage();
+          var x = await storage.write(r.user.firebaseId, auth.type);
+          if(x.code==0){
+            Navigator.of(context).push(home(r.user,auth.type));
+          }else{
+            print(x.message);
+          }
+        }else{
+          print("Error registering"+r.message);
+          auth.deleteUser();
+          failed();
+        }
+        break;
+      case 61:
+        Navigator.of(context).push(createfence(user,auth.type));
+        break;
+      default:
+        setState((){
+          submit = false;
+        });
     }
   }
 
@@ -102,21 +145,15 @@ class RegisterState extends State<Register> {
     if(res.code==0){
       final apiResponse = await API().getUser(res.user.firebaseId);
       if(apiResponse.code==0){
-        Navigator.of(context).push(home(user,facebookauth.type));
-      }else{
-        final apires = await API().addUser(res.user);
-        if(apires.code==0){
-          Storage storage = Storage();
-          var x = await storage.write(apires.user.firebaseId, facebookauth.type);
-          if(x.code==0){
-            Navigator.of(context).push(home(apires.user,facebookauth.type));
-          }else{
-            print(x.message);
-          }
+        Storage storage = Storage();
+        var x = await storage.write(apiResponse.user.firebaseId, facebookauth.type);
+        if(x.code==0){
+          Navigator.of(context).push(home(apiResponse.user,facebookauth.type));
         }else{
-          facebookauth.deleteUser();
-          failed();
+          print(x.message);
         }
+      }else{
+        uploadUser(res.user,facebookauth);
       }
     }else{
       //error dialog
@@ -125,29 +162,26 @@ class RegisterState extends State<Register> {
 
   google() async {
     final googleSignIn = Google();
-    final res = await googleSignIn.continueWithGoogle();
-    if(res.code==0){
-      final apiResponse = await API().getUser(res.user.firebaseId);
-      if(apiResponse.code==0){
-        Navigator.of(context).push(home(user,googleSignIn.type));
-      }else{
-        final apires = await API().addUser(res.user);
-        if(apires.code==0){
+    googleSignIn.initialize().then((v) async {
+      final res = await googleSignIn.continueWithGoogle();
+      if(res.code==0){
+        final apiResponse = await API().getUser(res.user.firebaseId);
+        if(apiResponse.code==0){
           Storage storage = Storage();
-          var x = await storage.write(apires.user.firebaseId, googleSignIn.type);
+          var x = await storage.write(apiResponse.user.firebaseId, googleSignIn.type);
           if(x.code==0){
-            Navigator.of(context).push(home(apires.user,googleSignIn.type));
+            Navigator.of(context).push(home(apiResponse.user,googleSignIn.type));
           }else{
             print(x.message);
           }
         }else{
-          googleSignIn.deleteUser();
-          failed();
+          print("Else:${res.user.name}");
+          uploadUser(res.user,googleSignIn);
         }
+      }else{
+        print(res.code);
       }
-    }else{
-      print(res.code);
-    }
+    });
   }
 
   @override
@@ -211,6 +245,7 @@ class RegisterState extends State<Register> {
                     child:Padding(
                       padding: const EdgeInsets.only(top:10,left:40,right:40),
                       child: TextField(
+                        onEditingComplete: ()=>FocusScope.of(context).nextFocus(),
                         controller: emailcontroller,
                         style: TextStyle(fontSize: 20),
                         decoration: InputDecoration(
@@ -232,7 +267,7 @@ class RegisterState extends State<Register> {
                     alignment: Alignment.centerLeft,
                     child:Padding(
                       padding: const EdgeInsets.only(top:10,left:60,right:40),
-                      child: Text("Username",style:TextStyle(fontSize: 18,color:Color.fromRGBO(82,93,92,1))),
+                      child: Text("Name",style:TextStyle(fontSize: 18,color:Color.fromRGBO(82,93,92,1))),
                     )
                   ),
                   Container(
@@ -240,6 +275,7 @@ class RegisterState extends State<Register> {
                     child:Padding(
                       padding: const EdgeInsets.only(top:10,left:40,right:40),
                       child: TextField(
+                        onEditingComplete: ()=>FocusScope.of(context).nextFocus(),
                         controller: usernamecontroller,
                         style: TextStyle(fontSize: 20),
                         decoration: InputDecoration(
@@ -247,6 +283,37 @@ class RegisterState extends State<Register> {
                           filled: true,
                           fillColor: Color.fromRGBO(246, 246, 246, 1),
                           prefixIcon: Icon(Icons.person_outline,color: Color.fromRGBO(82,93,92,1)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(30)
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(30)
+                          ), 
+                        ),
+                      ),
+                    )
+                  ),
+                  Container(
+                    alignment: Alignment.centerLeft,
+                    child:Padding(
+                      padding: const EdgeInsets.only(top:10,left:60,right:40),
+                      child: Text("Phone No.",style:TextStyle(fontSize: 18,color:Color.fromRGBO(82,93,92,1))),
+                    )
+                  ),
+                  Container(
+                    alignment: Alignment.center,
+                    child:Padding(
+                      padding: const EdgeInsets.only(top:10,left:40,right:40),
+                      child: TextField(
+                        onEditingComplete: ()=>FocusScope.of(context).nextFocus(),
+                        controller: phonecontroller,
+                        keyboardType: TextInputType.phone,
+                        style: TextStyle(fontSize: 20),
+                        decoration: InputDecoration(
+                          contentPadding: EdgeInsets.symmetric(vertical:10),
+                          filled: true,
+                          fillColor: Color.fromRGBO(246, 246, 246, 1),
+                          prefixIcon: Icon(Icons.phone),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(30)
                           ),
@@ -278,6 +345,7 @@ class RegisterState extends State<Register> {
                     child:Padding(
                       padding: const EdgeInsets.only(top:10,left:40,right:40),
                       child: TextField(
+                        onEditingComplete: ()=>FocusScope.of(context).nextFocus(),
                         controller: passwordcontroller,
                         obscureText: hide,
                         style: TextStyle(fontSize: 20),
@@ -316,6 +384,7 @@ class RegisterState extends State<Register> {
                     child:Padding(
                       padding: const EdgeInsets.only(top:10,left:40,right:40),
                       child: TextField(
+                        onEditingComplete: ()=>signin(),
                         controller: confirmcontroller,
                         obscureText: chide,
                         style: TextStyle(fontSize: 20),
@@ -435,6 +504,99 @@ class RegisterState extends State<Register> {
             )
           ],
         )
+      )
+    );
+  }
+}
+
+class CreateFence extends StatefulWidget {
+  final CustomUser user;
+  final auth;
+  CreateFence({this.user,this.auth});
+  @override
+  _CreateFenceState createState() => _CreateFenceState();
+}
+
+class _CreateFenceState extends State<CreateFence> {
+  bool loading;
+
+  @override
+  void initState(){
+    loading = false;
+    super.initState();
+  }
+
+  Route home(CustomUser user,dynamic auth){
+    return PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => Home(user: user,auth:auth),
+      transitionsBuilder: (context, animation, secondaryAnimation, child){
+        return SlideTransition(
+          position: animation.drive(Tween(begin:Offset(-1,0),end:Offset.zero)),
+          child: child,
+        );
+      },
+    );
+  }
+
+  addFence(data) async {
+    setState(() {
+      loading = true;
+    });
+    var pt1 = data["coordinates"]["pt1"];
+    var pt2 = data["coordinates"]["pt2"];
+    APIResponse res = await API().addFence(pt1["latitude"],pt1["longitude"],pt2["latitude"],pt2["longitude"],data["name"],data["id"]);
+    print("\n\n${res.code}\n\n");
+    if(res.code==0){
+      widget.user.fenceId = data["id"];
+      APIResponse r = await API().addUser(widget.user);
+      if(r.code==0){
+        Navigator.of(context).push(home(r.user,widget.auth));
+      }else{
+        print("Error registering"+res.message);
+        widget.auth.deleteUser();
+      }
+      setState(() {
+        loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      child: SafeArea(
+        child: Stack(
+          children: [
+            WebView(
+              initialUrl: "https://comex-geofence.herokuapp.com/",
+              javascriptMode: JavascriptMode.unrestricted,
+              javascriptChannels: <JavascriptChannel>[
+                JavascriptChannel(
+                  name: 'MobileApp', 
+                  onMessageReceived:(JavascriptMessage message){
+                    var s = json.decode(message.message);
+                    addFence(s);
+                  }
+                )
+              ].toSet(),
+            ),
+            loading ? 
+            Container(
+              width: MediaQuery.of(context).size.width,
+              height: MediaQuery.of(context).size.height,
+              color: Colors.black26,
+              child: Center(
+                child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color.fromRGBO(3, 163, 99, 1))),
+              ),
+            ):
+            Positioned(
+              bottom: 0,
+              height: 0,
+              width: 0,
+              child: Container()
+            )
+          ],
+        ),
       )
     );
   }

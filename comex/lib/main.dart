@@ -80,7 +80,7 @@ class _SplashScreenState extends State<SplashScreen> {
     return Scaffold(
       body:Container(
         child:Center(
-          child: Text("ComEx")
+          child: Text("ComEx",style:TextStyle(fontSize:25,fontWeight:FontWeight.bold))
         )
       )
     );
@@ -170,12 +170,16 @@ class LoginState extends State<Login> {
     final facebookauth = Facebook();
     facebookauth.continueWithFacebook().then((res){
       if(res.code==0){
-        API().getUser(res.user.firebaseId).then((apiResponse){
+        API().getUser(res.user.firebaseId).then((apiResponse) async {
           if(apiResponse.code==0){
             setState(() {
               loading = false;
             });
-            Navigator.of(context).push(home(user,facebookauth.type));
+            final storage = Storage();
+            final r = await storage.write(apiResponse.user.firebaseId,facebookauth.type);
+            if(r.code==0){
+              Navigator.of(context).push(home(res.user,facebookauth.type));
+            }
           }
         });
       }else{
@@ -187,15 +191,21 @@ class LoginState extends State<Login> {
 
   google() async {
     final googleSignIn = Google();
-    final res = await googleSignIn.continueWithGoogle();
-    if(res.code==0){
-      final apiResponse = await API().getUser(res.user.firebaseId);
-      if(apiResponse.code==0){
-        Navigator.of(context).push(home(user,googleSignIn.type));
+    googleSignIn.initialize().then((v) async {
+      final res = await googleSignIn.continueWithGoogle();
+      if(res.code==0){
+        final apiResponse = await API().getUser(res.user.firebaseId);
+        if(apiResponse.code==0){
+          final storage = Storage();
+          final r = await storage.write(apiResponse.user.firebaseId,googleSignIn.type);
+          if(r.code==0){
+            Navigator.of(context).push(home(res.user,googleSignIn.type));
+          }
+        }
+      }else{
+        print(res.code);
       }
-    }else{
-      print(res.code);
-    }
+    });
   }
 
   @override
@@ -248,6 +258,7 @@ class LoginState extends State<Login> {
                       child:Padding(
                         padding: const EdgeInsets.only(top:10,left:40,right:40),
                         child: TextField(
+                          onEditingComplete: ()=>FocusScope.of(context).nextFocus(),
                           controller: emailcontroller,
                           style: TextStyle(fontSize: 20),
                           decoration: InputDecoration(
@@ -286,6 +297,7 @@ class LoginState extends State<Login> {
                       child:Padding(
                         padding: const EdgeInsets.only(top:10,left:40,right:40),
                         child: TextField(
+                          onEditingComplete: ()=>signin(),
                           controller: passwordcontroller,
                           obscureText: true,
                           style: TextStyle(fontSize: 20),
