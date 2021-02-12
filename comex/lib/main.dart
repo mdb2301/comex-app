@@ -3,6 +3,7 @@ import 'package:comex/Authentication.dart';
 import 'package:comex/Storage.dart';
 import 'package:comex/register.dart';
 import 'package:flutter/material.dart';
+import 'CreateFence.dart';
 import 'CustomUser.dart';
 import 'home.dart';
 void main() {
@@ -163,30 +164,67 @@ class LoginState extends State<Login> {
     }
   }
 
-  facebook() async {
-    setState(() {
-      loading = true;
-    });
-    final facebookauth = Facebook();
-    facebookauth.continueWithFacebook().then((res){
-      if(res.code==0){
-        API().getUser(res.user.firebaseId).then((apiResponse) async {
-          if(apiResponse.code==0){
-            setState(() {
-              loading = false;
-            });
-            final storage = Storage();
-            final r = await storage.write(apiResponse.user.firebaseId,facebookauth.type);
-            if(r.code==0){
-              Navigator.of(context).push(home(res.user,facebookauth.type));
-            }
+  Route createfence(CustomUser user, dynamic auth){
+    return PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => CreateFence(user:user,auth:auth),
+      transitionsBuilder: (context, animation, secondaryAnimation, child){
+        return SlideTransition(
+          position: animation.drive(Tween(begin:Offset(-1,0),end:Offset.zero)),
+          child: child,
+        );
+      },
+    );
+  }
+
+  uploadUser(CustomUser user,dynamic auth) async {
+    APIResponse x = await API().checkFence();
+    print("\n\n${x.code}\n\n");
+    switch(x.code){
+      case 0:
+        user.fenceId = x.fenceId;
+        APIResponse r = await API().addUser(user);
+        if(r.code==0){
+          Storage storage = Storage();
+          var x = await storage.write(r.user.firebaseId, auth.type);
+          if(x.code==0){
+            Navigator.of(context).push(home(r.user,auth.type));
+          }else{
+            print(x.message);
           }
+        }else{
+          print("Error registering"+r.message);
+          auth.deleteUser();
+        }
+        break;
+      case 61:
+        Navigator.of(context).push(createfence(user,auth.type));
+        break;
+      default:
+        setState((){
+          loading = false;
         });
+    }
+  }
+
+  facebook() async {
+    final facebookauth = Facebook();
+    final res = await facebookauth.continueWithFacebook();
+    if(res.code==0){
+      final apiResponse = await API().getUser(res.user.firebaseId);
+      if(apiResponse.code==0){
+        Storage storage = Storage();
+        var x = await storage.write(apiResponse.user.firebaseId, facebookauth.type);
+        if(x.code==0){
+          Navigator.of(context).push(home(apiResponse.user,facebookauth.type));
+        }else{
+          print(x.message);
+        }
       }else{
-        //error dialog
+        uploadUser(res.user,facebookauth);
       }
-    });
-    
+    }else{
+      //error dialog
+    }
   }
 
   google() async {
@@ -196,11 +234,16 @@ class LoginState extends State<Login> {
       if(res.code==0){
         final apiResponse = await API().getUser(res.user.firebaseId);
         if(apiResponse.code==0){
-          final storage = Storage();
-          final r = await storage.write(apiResponse.user.firebaseId,googleSignIn.type);
-          if(r.code==0){
-            Navigator.of(context).push(home(res.user,googleSignIn.type));
+          Storage storage = Storage();
+          var x = await storage.write(apiResponse.user.firebaseId, googleSignIn.type);
+          if(x.code==0){
+            Navigator.of(context).push(home(apiResponse.user,googleSignIn.type));
+          }else{
+            print(x.message);
           }
+        }else{
+          print("Else:${res.user.name}");
+          uploadUser(res.user,googleSignIn);
         }
       }else{
         print(res.code);
